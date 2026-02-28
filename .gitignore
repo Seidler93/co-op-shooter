@@ -1,0 +1,103 @@
+# ==========================================================
+# ROOT / GENERAL
+# ==========================================================
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env / secrets
+.env
+.env.*
+*.key
+*.pem
+*serviceAccount*.json
+*firebase-admin*.json
+*secret*
+
+# Builds folder (local Unity builds)
+builds/
+
+# ==========================================================
+# UNITY PROJECT (/game)
+# ==========================================================
+
+# Unity generated folders
+game/[Ll]ibrary/
+game/[Tt]emp/
+game/[Oo]bj/
+game/[Bb]uild/
+game/[Bb]uilds/
+game/[Ll]ogs/
+game/[Uu]ser[Ss]ettings/
+game/[Mm]emoryCaptures/
+game/[Rr]ecordings/
+
+# Crash reports
+game/sysinfo.txt
+
+# Rider / VS
+game/.vs/
+game/.idea/
+game/*.csproj
+game/*.unityproj
+game/*.sln
+game/*.user
+game/*.pidb
+game/*.booproj
+game/*.svd
+game/*.pdb
+game/*.mdb
+game/*.opendb
+game/*.VC.db
+
+# BUT KEEP THESE (important!)
+!game/Assets/**/*.meta
+!game/Packages/**/*.json
+!game/ProjectSettings/**/*.asset
+
+# ==========================================================
+# NODE / ELECTRON (/launcher)
+# ==========================================================
+
+launcher/node_modules/
+launcher/dist/
+launcher/out/
+launcher/release/
+launcher/.vite/
+launcher/.cache/
+
+# Electron builder artifacts
+launcher/*.exe
+launcher/*.zip
+launcher/*.blockmap
+launcher/*.yml
+
+# ==========================================================
+# VS CODE / EDITORS
+# ==========================================================
+
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+.idea/
+
+# ==========================================================
+# OPTIONAL LARGE FILE TYPES (Enable if needed)
+# ==========================================================
+
+# Uncomment if you are NOT using Git LFS
+# *.psd
+# *.fbx
+# *.wav
+# *.mp4
+# *.mov
