@@ -1,24 +1,47 @@
 {
-  "name": "launcher",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "coop-shooter-launcher",
+  "version": "0.1.0",
+  "main": "src/main/main.js",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "concurrently -k -n VITE,ELECTRON -c auto \"npm:dev:renderer\" \"npm:dev:electron\"",
+    "dev:renderer": "vite",
+    "dev:electron": "wait-on -v tcp:5173 && cross-env ELECTRON_DISABLE_SECURITY_WARNINGS=true nodemon --verbose --watch src/main --exec \"electron .\"",
+    "build:renderer": "vite build --config vite.config.js",
+    "dist": "npm run build:renderer && electron-builder"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "electron": "^40.6.1",
-    "electron-updater": "^6.8.3",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "electron": "^31.0.0",
+    "electron-updater": "^6.2.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^5.1.4",
-    "electron-builder": "^26.8.1",
-    "vite": "^7.3.1"
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron-builder": "^24.13.3",
+    "nodemon": "^3.1.14",
+    "vite": "^5.4.8",
+    "wait-on": "^9.0.4"
+  },
+  "build": {
+    "appId": "com.yourstudio.coopshooter",
+    "productName": "Co-op Shooter",
+    "directories": {
+      "output": "release"
+    },
+    "publish": [
+      {
+        "provider": "github"
+      }
+    ],
+    "files": [
+      "src/main/**",
+      "dist-renderer/**"
+    ],
+    "win": {
+      "target": "nsis"
+    }
   }
 }
