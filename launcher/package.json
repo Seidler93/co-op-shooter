@@ -8,6 +8,9 @@
     "dev:renderer": "vite",
     "dev:electron": "wait-on -v tcp:5173 && cross-env ELECTRON_DISABLE_SECURITY_WARNINGS=true nodemon --verbose --watch src/main --exec \"electron .\"",
     "build:renderer": "vite build --config vite.config.js",
+    "build:electron": "electron-builder",
+    "build:game": "powershell -ExecutionPolicy Bypass -File ./scripts/build-game.ps1 -UnityPath \"H:\\Unity\\6000.3.10f1\\Editor\\Unity.exe\"",
+    "build:all": "npm run build:game && npm run build:renderer && npm run build:electron",
     "dist": "npm run build:renderer && electron-builder"
   },
   "dependencies": {
@@ -37,8 +40,18 @@
       }
     ],
     "files": [
+      "dist/**",
       "src/main/**",
-      "dist-renderer/**"
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../builds/windows",
+        "to": "builds/windows",
+        "filter": [
+          "**/*"
+        ]
+      }
     ],
     "win": {
       "target": "nsis"
