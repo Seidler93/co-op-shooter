@@ -276,6 +276,7 @@ GameObject:
   - component: {fileID: 7764118954687072934}
   - component: {fileID: 1368962173765522441}
   - component: {fileID: 3859886096818169934}
+  - component: {fileID: 1158056282913675681}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -372,7 +373,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2560019461
+  GlobalObjectIdHash: 1253330548
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -479,6 +480,28 @@ MonoBehaviour:
   adjustShoulderOffset: 1
   defaultShoulderOffset: {x: 0.55, y: 0.1, z: 0}
   aimShoulderOffset: {x: 0.35, y: 0.1, z: 0}
+--- !u!114 &1158056282913675681
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6042401852463695999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 503b32fb22628214b91c6a47e32d338e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponShooter
+  ShowTopMostFoldoutHeaderGroup: 1
+  muzzle: {fileID: 6479072513566796509}
+  projectilePrefab: {fileID: 9107002009394075484, guid: c8dc8b44e7f98864e8302805587a518f, type: 3}
+  projectileSpeed: 200
+  maxAimDistance: 250
+  fireCooldown: 0.12
+  aimMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  ignoreShooterCollision: 1
 --- !u!1 &6487970761737627794
 GameObject:
   m_ObjectHideFlags: 0
@@ -682,7 +705,7 @@ Transform:
   m_GameObject: {fileID: 8775217163737265175}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.938, z: 0}
+  m_LocalPosition: {x: 0, y: 1.134, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
