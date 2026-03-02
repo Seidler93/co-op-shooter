@@ -12,6 +12,7 @@ public class WeaponShooter : NetworkBehaviour
     [SerializeField] private float projectileSpeed = 35f;
     [SerializeField] private float maxAimDistance = 250f;
     [SerializeField] private float fireCooldown = 0.12f;
+    [SerializeField] private bool fullAuto = true;
 
     [Header("Aim Raycast")]
     [Tooltip("Layers that can be aimed at. Exclude Player layer to avoid hitting yourself.")]
@@ -59,38 +60,39 @@ public class WeaponShooter : NetworkBehaviour
     {
         if (!IsOwner) return;
         if (muzzle == null || projectilePrefab == null) return;
-
         if (Time.time < nextFireTime) return;
+        if (fireAction == null) return;
 
-        if (fireAction != null && fireAction.WasPressedThisFrame())
-        {
-            nextFireTime = Time.time + fireCooldown;
+        bool wantsFire = fullAuto
+            ? fireAction.IsPressed()
+            : fireAction.WasPressedThisFrame();
 
-            if (ownerCam == null) ownerCam = Camera.main;
-            if (ownerCam == null) return;
+        if (!wantsFire) return;
 
-            // Ray from screen center
-            Ray ray = ownerCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        nextFireTime = Time.time + fireCooldown;
 
-            Vector3 aimPoint;
-            if (Physics.Raycast(ray, out RaycastHit hit, maxAimDistance, aimMask, QueryTriggerInteraction.Ignore))
-                aimPoint = hit.point;
-            else
-                aimPoint = ray.origin + ray.direction * maxAimDistance;
+        if (ownerCam == null) ownerCam = Camera.main;
+        if (ownerCam == null) return;
 
-            Vector3 dir = (aimPoint - muzzle.position);
-            if (dir.sqrMagnitude < 0.0001f)
-                dir = muzzle.forward;
-            dir.Normalize();
+        Ray ray = ownerCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
 
-            Quaternion rot = Quaternion.LookRotation(dir, Vector3.up);
-            Vector3 initialVel = dir * projectileSpeed;
+        Vector3 aimPoint;
+        if (Physics.Raycast(ray, out RaycastHit hit, maxAimDistance, aimMask, QueryTriggerInteraction.Ignore))
+            aimPoint = hit.point;
+        else
+            aimPoint = ray.origin + ray.direction * maxAimDistance;
 
-            // 🔥 Instant local audio for shooter (zero latency feel)
-            PlayLocalGunshot(muzzle.position);
+        Vector3 dir = (aimPoint - muzzle.position);
+        if (dir.sqrMagnitude < 0.0001f)
+            dir = muzzle.forward;
+        dir.Normalize();
 
-            FireServerRpc(muzzle.position, rot, initialVel);
-        }
+        Quaternion rot = Quaternion.LookRotation(dir, Vector3.up);
+        Vector3 initialVel = dir * projectileSpeed;
+
+        PlayLocalGunshot(muzzle.position);
+
+        FireServerRpc(muzzle.position, rot, initialVel);
     }
 
     [ServerRpc]
