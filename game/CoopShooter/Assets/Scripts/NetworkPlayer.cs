@@ -57,12 +57,16 @@ public class NetworkPlayer : NetworkBehaviour
         if (!sceneAimCam)
             sceneAimCam = FindFirstObjectByType<CinemachineCamera>();
 
-        Debug.Log($"[NetworkPlayer] Claim camera. camPivot={(camPivot ? "OK" : "NULL")} sceneAimCam={(sceneAimCam ? "FOUND" : "NULL")}");
+        Debug.Log($"[NetworkPlayer] Claim camera. camPivot={(camPivot ? "OK" : "NULL")} sceneAimCam={(sceneAimCam ? "FOUND" : "NULL")} cameraController={(cameraController ? "OK" : "NULL")}");
 
         if (!sceneAimCam || !camPivot)
             yield break;
 
         sceneAimCam.Follow = camPivot;
         sceneAimCam.LookAt = shoulderTarget ? shoulderTarget : camPivot;
+
+        // ✅ Inject the scene camera into the owner's CameraController so zoom works
+        if (cameraController)
+            cameraController.SetCinemachine(sceneAimCam);
     }
 }

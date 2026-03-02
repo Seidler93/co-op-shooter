@@ -275,6 +275,7 @@ GameObject:
   - component: {fileID: 604687699012427340}
   - component: {fileID: 7764118954687072934}
   - component: {fileID: 1368962173765522441}
+  - component: {fileID: 3859886096818169934}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -444,10 +445,40 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::NetworkPlayer
   ShowTopMostFoldoutHeaderGroup: 1
   playerController: {fileID: 666066161801825246}
-  cameraController: {fileID: 0}
+  cameraController: {fileID: 3859886096818169934}
   camPivot: {fileID: 9028854068797833222}
   shoulderTarget: {fileID: 6713908926840453643}
   sceneAimCam: {fileID: 0}
+--- !u!114 &3859886096818169934
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6042401852463695999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b8633e88a09ed5468c159323d3e1be4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CameraController
+  player: {fileID: 6686457148284037638}
+  camPivot: {fileID: 9028854068797833222}
+  playerController: {fileID: 666066161801825246}
+  gunPitchPivot: {fileID: 4191048085221356336}
+  cmCam: {fileID: 0}
+  thirdFollow: {fileID: 0}
+  sensitivity: 0.03
+  minPitch: -35
+  maxPitch: 70
+  invertY: 0
+  defaultFov: 65
+  aimFov: 50
+  defaultDistance: 4.5
+  aimDistance: 3.2
+  zoomSharpness: 12
+  adjustShoulderOffset: 1
+  defaultShoulderOffset: {x: 0.55, y: 0.1, z: 0}
+  aimShoulderOffset: {x: 0.35, y: 0.1, z: 0}
 --- !u!1 &6487970761737627794
 GameObject:
   m_ObjectHideFlags: 0

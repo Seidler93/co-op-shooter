@@ -398,7 +398,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1513030337}
-  - component: {fileID: 1513030336}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -406,35 +405,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1513030336
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1513030335}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5b8633e88a09ed5468c159323d3e1be4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CameraController
-  player: {fileID: 0}
-  camPivot: {fileID: 0}
-  playerController: {fileID: 0}
-  cmCam: {fileID: 2035951422}
-  thirdFollow: {fileID: 2035951424}
-  sensitivity: 0.3
-  minPitch: -35
-  maxPitch: 70
-  invertY: 0
-  defaultFov: 75
-  aimFov: 50
-  defaultDistance: 4.5
-  aimDistance: 3.2
-  zoomSharpness: 12
-  adjustShoulderOffset: 1
-  defaultShoulderOffset: {x: 0.55, y: 0.1, z: 0}
-  aimShoulderOffset: {x: 0.35, y: 0.1, z: 0}
 --- !u!4 &1513030337
 Transform:
   m_ObjectHideFlags: 0
