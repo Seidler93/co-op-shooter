@@ -89,6 +89,7 @@ public class WeaponShooter : NetworkBehaviour
     [ServerRpc]
     private void FireServerRpc(Vector3 spawnPos, Quaternion spawnRot, Vector3 initialVelocity, ServerRpcParams rpcParams = default)
     {
+        spawnPos += spawnRot * Vector3.forward * 0.25f; // ~5x radius
         // Instantiate & init on server
         NetworkObject proj = Instantiate(projectilePrefab, spawnPos, spawnRot);
 
