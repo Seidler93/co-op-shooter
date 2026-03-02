@@ -503,6 +503,10 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   ignoreShooterCollision: 1
+  gunshotClip: {fileID: 8300000, guid: 1b145bcffd767854fb0c71c37678ebaa, type: 3}
+  gunshotVolume: 1
+  gunshotPitchMin: 0.95
+  gunshotPitchMax: 1.05
 --- !u!114 &6498132116221345135
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -519,6 +523,7 @@ MonoBehaviour:
   maxHP: 100
   despawnOnDeath: 1
   disableOnDeath: 0
+  logHealthChanges: 1
   CurrentHP:
     m_InternalValue: 0
 --- !u!1 &6487970761737627794

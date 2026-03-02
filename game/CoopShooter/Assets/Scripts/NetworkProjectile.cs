@@ -1,6 +1,8 @@
 using Unity.Netcode;
 using UnityEngine;
 
+public enum ImpactKind : byte { World = 0, Enemy = 1 }
+
 public class NetworkProjectile : NetworkBehaviour
 {
     [Header("Lifetime")]
@@ -19,6 +21,19 @@ public class NetworkProjectile : NetworkBehaviour
 
     [Tooltip("Layers the projectile can hit (Default + Enemy typically).")]
     [SerializeField] private LayerMask hitMask = ~0;
+
+    [Header("VFX (NOT NetworkObjects)")]
+    [Tooltip("World impact prefab (particles/decal). Should NOT have a NetworkObject.")]
+    [SerializeField] private GameObject worldImpactPrefab;
+
+    [Tooltip("Enemy hit sparks prefab. Should NOT have a NetworkObject.")]
+    [SerializeField] private GameObject enemyImpactPrefab;
+
+    [Tooltip("Seconds to keep enemy sparks alive when parented to enemy.")]
+    [SerializeField] private float enemyFxLifetime = 1.5f;
+
+    [Tooltip("Seconds to keep world impact alive.")]
+    [SerializeField] private float worldFxLifetime = 3f;
 
     // Set by Initialize() on server before Spawn()
     private Vector3 dir;
@@ -108,8 +123,8 @@ public class NetworkProjectile : NetworkBehaviour
                     return;
                 }
 
-                ApplyHit(hit.collider);
-                hasHit = true;
+                hasHit = true;      // set first to prevent double-trigger
+                HandleImpact(hit);  // VFX + damage (server authoritative)
                 SafeDespawn();
                 return;
             }
@@ -141,8 +156,27 @@ public class NetworkProjectile : NetworkBehaviour
         return false;
     }
 
-    private void ApplyHit(Collider col)
+    private void HandleImpact(RaycastHit hit)
     {
+        Collider col = hit.collider;
+
+        // Enemy classification: use EnemyAI so player Health doesn't count as "enemy"
+        bool hitEnemy = col.GetComponentInParent<EnemyAI>() != null;
+
+        // Optional parenting: only if the hit object has a NetworkObject
+        ulong hitNetId = 0;
+        var hitNo = col.GetComponentInParent<NetworkObject>();
+        if (hitNo != null) hitNetId = hitNo.NetworkObjectId;
+
+        // Tell all clients to spawn the impact VFX once
+        SpawnImpactClientRpc(
+            hitEnemy ? ImpactKind.Enemy : ImpactKind.World,
+            hit.point,
+            hit.normal,
+            hitEnemy ? hitNetId : 0
+        );
+
+        // Damage (server only)
         var hp = col.GetComponentInParent<Health>();
         if (hp != null && hp.IsAlive)
         {
@@ -152,6 +186,32 @@ public class NetworkProjectile : NetworkBehaviour
         else
         {
             Debug.Log($"[SERVER] Kinematic projectile hit {col.name} (no Health)");
+        }
+    }
+
+    [ClientRpc]
+    private void SpawnImpactClientRpc(ImpactKind kind, Vector3 pos, Vector3 normal, ulong hitNetId)
+    {
+        GameObject prefab = (kind == ImpactKind.Enemy) ? enemyImpactPrefab : worldImpactPrefab;
+        if (!prefab) return;
+
+        Quaternion rot = normal.sqrMagnitude > 0.001f
+            ? Quaternion.LookRotation(normal)
+            : Quaternion.identity;
+
+        if (kind == ImpactKind.Enemy && hitNetId != 0 &&
+            NetworkManager.Singleton != null &&
+            NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(hitNetId, out var netObj) &&
+            netObj != null)
+        {
+            // Spawn sparks at hit point, parent to enemy so it follows movement slightly
+            var fx = Instantiate(prefab, pos, rot, netObj.transform);
+            Destroy(fx, Mathf.Max(0.1f, enemyFxLifetime));
+        }
+        else
+        {
+            var fx = Instantiate(prefab, pos, rot);
+            Destroy(fx, Mathf.Max(0.1f, worldFxLifetime));
         }
     }
 

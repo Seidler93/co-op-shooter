@@ -20,6 +20,12 @@ public class WeaponShooter : NetworkBehaviour
     [Header("Collision")]
     [SerializeField] private bool ignoreShooterCollision = true;
 
+    [Header("Audio")]
+    [SerializeField] private AudioClip gunshotClip;
+    [SerializeField] private float gunshotVolume = 1f;
+    [SerializeField] private float gunshotPitchMin = 0.95f;
+    [SerializeField] private float gunshotPitchMax = 1.05f;
+
     private PlayerControls input;
     private InputAction fireAction;
 
@@ -34,8 +40,6 @@ public class WeaponShooter : NetworkBehaviour
         input.Enable();
 
         fireAction = input.Gameplay.Fire;
-
-        // Cinemachine drives a virtual camera, but rendering is typically by Main Camera.
         ownerCam = Camera.main;
     }
 
@@ -82,6 +86,9 @@ public class WeaponShooter : NetworkBehaviour
             Quaternion rot = Quaternion.LookRotation(dir, Vector3.up);
             Vector3 initialVel = dir * projectileSpeed;
 
+            // 🔥 Instant local audio for shooter (zero latency feel)
+            PlayLocalGunshot(muzzle.position);
+
             FireServerRpc(muzzle.position, rot, initialVel);
         }
     }
@@ -94,16 +101,76 @@ public class WeaponShooter : NetworkBehaviour
 
         NetworkObject proj = Instantiate(projectilePrefab, spawnPos, spawnRot);
 
-        // Direction comes from velocity
-        Vector3 dir = initialVelocity.sqrMagnitude > 0.0001f ? initialVelocity.normalized : spawnRot * Vector3.forward;
+        Vector3 dir = initialVelocity.sqrMagnitude > 0.0001f
+            ? initialVelocity.normalized
+            : spawnRot * Vector3.forward;
 
         var projectile = proj.GetComponent<NetworkProjectile>();
         if (projectile != null)
         {
-            ulong? shooterId = ignoreShooterCollision ? rpcParams.Receive.SenderClientId : (ulong?)null;
+            ulong? shooterId = ignoreShooterCollision
+                ? rpcParams.Receive.SenderClientId
+                : (ulong?)null;
+
             projectile.Initialize(dir, projectileSpeed, shooterId);
         }
 
         proj.Spawn(true);
+
+        // 🔊 Tell all OTHER clients to play the gunshot
+        PlayGunshotClientRpc(spawnPos, new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams
+            {
+                TargetClientIds = GetOtherClientIds(rpcParams.Receive.SenderClientId)
+            }
+        });
+    }
+
+    // Plays instantly for shooter only
+    private void PlayLocalGunshot(Vector3 position)
+    {
+        if (!gunshotClip) return;
+
+        AudioSource.PlayClipAtPoint(gunshotClip, position, gunshotVolume);
+    }
+
+    // Plays for everyone except the shooter
+    [ClientRpc]
+    private void PlayGunshotClientRpc(Vector3 position, ClientRpcParams rpcParams = default)
+    {
+        if (!gunshotClip) return;
+
+        GameObject temp = new GameObject("GunshotAudio");
+        temp.transform.position = position;
+
+        var audio = temp.AddComponent<AudioSource>();
+        audio.clip = gunshotClip;
+        audio.spatialBlend = 1f; // 3D
+        audio.volume = gunshotVolume;
+        audio.pitch = Random.Range(gunshotPitchMin, gunshotPitchMax);
+        audio.rolloffMode = AudioRolloffMode.Logarithmic;
+        audio.minDistance = 5f;
+        audio.maxDistance = 60f;
+        audio.Play();
+
+        Destroy(temp, gunshotClip.length + 0.1f);
+    }
+
+    private ulong[] GetOtherClientIds(ulong shooterId)
+    {
+        var nm = NetworkManager.Singleton;
+        if (nm == null) return new ulong[0];
+
+        var list = nm.ConnectedClientsIds;
+        var result = new System.Collections.Generic.List<ulong>();
+
+        foreach (var id in list)
+        {
+            if (id != shooterId)
+                result.Add(id);
+        }
+
+        return result.ToArray();
     }
 }
