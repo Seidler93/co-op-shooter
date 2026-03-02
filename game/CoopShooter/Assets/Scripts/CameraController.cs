@@ -5,13 +5,13 @@ using Unity.Cinemachine;
 public class CameraController : MonoBehaviour
 {
     [Header("References")]
-    [SerializeField] private Transform player;
-    [SerializeField] private Transform camPivot;
+    [SerializeField] private Transform player;          // Player root (yaw rotates here)
+    [SerializeField] private Transform camPivot;        // Pitch pivot (child of player)
     [SerializeField] private PlayerController playerController;
 
     [Header("Cinemachine (v3)")]
-    [SerializeField] private CinemachineCamera cmCam;                // CM_AimCam
-    [SerializeField] private CinemachineThirdPersonFollow thirdFollow; // Position Control: Third Person Follow
+    [SerializeField] private CinemachineCamera cmCam;                
+    [SerializeField] private CinemachineThirdPersonFollow thirdFollow;
 
     [Header("Look Settings")]
     [SerializeField] private float sensitivity = 0.08f;
@@ -40,24 +40,43 @@ public class CameraController : MonoBehaviour
     private InputAction lookAction;
     private InputAction aimAction;
 
-    void Awake()
+    private void Awake()
     {
         input = new PlayerControls();
         lookAction = input.Gameplay.Look;
-        aimAction = input.Gameplay.Aim; // <-- bind RMB to this action in your Input Actions
+        aimAction = input.Gameplay.Aim;
 
-        if (!playerController && player)
-            playerController = player.GetComponent<PlayerController>();
+        if (!playerController)
+            playerController = GetComponentInParent<PlayerController>(); // IMPORTANT: parent, not children
 
-        // Auto-wire Cinemachine if not assigned
-        if (!cmCam) cmCam = FindFirstObjectByType<CinemachineCamera>();
-        if (cmCam && !thirdFollow) thirdFollow = cmCam.GetComponent<CinemachineThirdPersonFollow>();
+        if (!playerController)
+            playerController = GetComponentInChildren<PlayerController>(true); // fallback
+
+        // Player root = the object that actually moves (CharacterController)
+        if (!player && playerController)
+            player = playerController.transform;
+
+        // Pivot should usually be under the player root
+        if (!camPivot && playerController)
+        {
+            var t = playerController.transform.Find("CamPivot");
+            if (t) camPivot = t;
+        }
     }
 
-    void OnEnable() => input.Enable();
-    void OnDisable() => input.Disable();
+    private void OnEnable()
+    {
+        input.Enable();
+        Debug.Log("[CameraController] Enabled");
+    }
 
-    void Start()
+    private void OnDisable()
+    {
+        input.Disable();
+        Debug.Log("[CameraController] Disabled");
+    }
+
+    private void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
@@ -65,10 +84,10 @@ public class CameraController : MonoBehaviour
         if (camPivot)
         {
             pitch = camPivot.localEulerAngles.x;
-            if (pitch > 180f) pitch -= 360f;
+            if (pitch > 180f)
+                pitch -= 360f;
         }
 
-        // Initialize Cinemachine values to defaults (avoids first-frame pop)
         if (cmCam)
         {
             var lens = cmCam.Lens;
@@ -79,28 +98,32 @@ public class CameraController : MonoBehaviour
         if (thirdFollow)
         {
             thirdFollow.CameraDistance = defaultDistance;
+
             if (adjustShoulderOffset)
                 thirdFollow.ShoulderOffset = defaultShoulderOffset;
         }
     }
 
-    void Update()
+    private void Update()
     {
         HandleLook();
         HandleAimZoom();
     }
 
-    void HandleLook()
+    private void HandleLook()
     {
-        if (!player || !camPivot) return;
+        if (!player || !camPivot)
+            return;
 
         Vector2 look = lookAction.ReadValue<Vector2>();
+
         float mx = look.x * sensitivity;
         float my = look.y * sensitivity;
 
-        if (invertY) my = -my;
+        if (invertY)
+            my = -my;
 
-        // Yaw on player
+        // Yaw on player root
         player.Rotate(0f, mx, 0f);
 
         // Pitch on pivot
@@ -109,9 +132,10 @@ public class CameraController : MonoBehaviour
         camPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
     }
 
-    void HandleAimZoom()
+    private void HandleAimZoom()
     {
-        if (!cmCam || !thirdFollow) return;
+        if (!cmCam || !thirdFollow)
+            return;
 
         bool aiming = aimAction != null && aimAction.IsPressed();
 
@@ -119,7 +143,6 @@ public class CameraController : MonoBehaviour
         float targetDist = aiming ? aimDistance : defaultDistance;
         Vector3 targetShoulder = aiming ? aimShoulderOffset : defaultShoulderOffset;
 
-        // Exponential smoothing (better feel than raw Lerp w/ speed)
         float t = 1f - Mathf.Exp(-zoomSharpness * Time.deltaTime);
 
         // Smooth FOV
@@ -128,12 +151,13 @@ public class CameraController : MonoBehaviour
         cmCam.Lens = lens;
 
         // Smooth distance
-        thirdFollow.CameraDistance = Mathf.Lerp(thirdFollow.CameraDistance, targetDist, t);
+        thirdFollow.CameraDistance =
+            Mathf.Lerp(thirdFollow.CameraDistance, targetDist, t);
 
-        // Optional shoulder offset
         if (adjustShoulderOffset)
         {
-            thirdFollow.ShoulderOffset = Vector3.Lerp(thirdFollow.ShoulderOffset, targetShoulder, t);
+            thirdFollow.ShoulderOffset =
+                Vector3.Lerp(thirdFollow.ShoulderOffset, targetShoulder, t);
         }
     }
 }
