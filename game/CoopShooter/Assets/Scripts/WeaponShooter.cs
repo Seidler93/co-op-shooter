@@ -89,15 +89,19 @@ public class WeaponShooter : NetworkBehaviour
     [ServerRpc]
     private void FireServerRpc(Vector3 spawnPos, Quaternion spawnRot, Vector3 initialVelocity, ServerRpcParams rpcParams = default)
     {
-        spawnPos += spawnRot * Vector3.forward * 0.25f; // ~5x radius
-        // Instantiate & init on server
+        // Spawn slightly forward so we don't immediately start inside a wall/enemy capsule
+        spawnPos += spawnRot * Vector3.forward * 0.25f;
+
         NetworkObject proj = Instantiate(projectilePrefab, spawnPos, spawnRot);
+
+        // Direction comes from velocity
+        Vector3 dir = initialVelocity.sqrMagnitude > 0.0001f ? initialVelocity.normalized : spawnRot * Vector3.forward;
 
         var projectile = proj.GetComponent<NetworkProjectile>();
         if (projectile != null)
         {
             ulong? shooterId = ignoreShooterCollision ? rpcParams.Receive.SenderClientId : (ulong?)null;
-            projectile.Initialize(initialVelocity, shooterId);
+            projectile.Initialize(dir, projectileSpeed, shooterId);
         }
 
         proj.Spawn(true);

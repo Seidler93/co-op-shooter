@@ -1,8 +1,6 @@
-using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
-[RequireComponent(typeof(Rigidbody))]
 public class NetworkProjectile : NetworkBehaviour
 {
     [Header("Lifetime")]
@@ -11,29 +9,28 @@ public class NetworkProjectile : NetworkBehaviour
     [Header("Damage")]
     [SerializeField] private int damage = 25;
 
-    [Header("Deterministic Hit (Server Sweep)")]
-    [Tooltip("Should be >= projectile collider radius. Use slightly larger for reliability.")]
+    [Header("Motion")]
+    [Tooltip("Units per second (you said 200).")]
+    [SerializeField] private float speed = 200f;
+
+    [Header("Hit Detection (Deterministic Sweep)")]
+    [Tooltip("Should be >= projectile collider radius (0.05). Use slightly bigger for reliability.")]
     [SerializeField] private float sweepRadius = 0.08f;
 
-    [Tooltip("Layers the projectile can hit. Exclude 'Projectile' and usually 'Player' if no friendly fire.")]
+    [Tooltip("Layers the projectile can hit (Default + Enemy typically).")]
     [SerializeField] private LayerMask hitMask = ~0;
 
-    [Header("Spawn Safety")]
-    [SerializeField] private float armDelaySeconds = 0.02f;
+    // Set by Initialize() on server before Spawn()
+    private Vector3 dir;
+    private ulong shooterClientId;
+    private bool hasShooter;
 
-    private Rigidbody rb;
     private float spawnTime;
 
-    private bool armed;
-    private bool hasLastPos;
     private Vector3 lastPos;
+    private bool hasLastPos;
 
-    private bool hasHit; // deterministic: only process one hit
-
-    private void Awake()
-    {
-        rb = GetComponent<Rigidbody>();
-    }
+    private bool hasHit;
 
     public override void OnNetworkSpawn()
     {
@@ -41,79 +38,39 @@ public class NetworkProjectile : NetworkBehaviour
 
         if (!IsServer)
         {
-            rb.isKinematic = true;
+            enabled = false; // clients do not simulate
             return;
         }
 
-        // Server authoritative motion (Rigidbody), deterministic hit detection (sweep)
-        rb.isKinematic = false;
-        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative; // fine since we don't rely on collisions
-        rb.interpolation = RigidbodyInterpolation.Interpolate;
-
-        // IMPORTANT: We do NOT want physics collisions/bounce to affect behavior
-        // We'll either disable the collider or set it to trigger.
-        DisablePhysicsCollisions();
-
-        armed = false;
         hasHit = false;
-        hasLastPos = false;
-
-        StartCoroutine(ArmAfterDelay());
-    }
-
-    private IEnumerator ArmAfterDelay()
-    {
-        if (armDelaySeconds > 0f)
-            yield return new WaitForSeconds(armDelaySeconds);
-        else
-            yield return null;
-
-        armed = true;
-
-        // Initialize sweep baseline once armed
-        lastPos = rb.position;
-        hasLastPos = true;
+        hasLastPos = false; // first FixedUpdate will initialize lastPos
     }
 
     /// <summary>
-    /// Called on server BEFORE Spawn().
+    /// Called on server BEFORE Spawn(). Sets deterministic trajectory.
     /// </summary>
-    public void Initialize(Vector3 initialVelocity, ulong? shooterClientId)
+    public void Initialize(Vector3 directionNormalized, float projectileSpeed, ulong? shooterId)
     {
-        if (rb == null) rb = GetComponent<Rigidbody>();
+        dir = directionNormalized.sqrMagnitude > 0.0001f ? directionNormalized.normalized : Vector3.forward;
+        speed = projectileSpeed;
 
-        rb.isKinematic = false;
-        rb.linearVelocity = initialVelocity;
-        rb.angularVelocity = Vector3.zero;
-
-        // Ignore collision with shooter (still useful if you keep any colliders enabled)
-        if (!shooterClientId.HasValue) return;
-
-        if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(shooterClientId.Value, out var client))
-            return;
-
-        var shooterObj = client.PlayerObject;
-        if (shooterObj == null) return;
-
-        var shooterColliders = shooterObj.GetComponentsInChildren<Collider>(true);
-        var projColliders = GetComponentsInChildren<Collider>(true);
-
-        foreach (var pc in projColliders)
+        if (shooterId.HasValue)
         {
-            if (!pc) continue;
-            foreach (var sc in shooterColliders)
-            {
-                if (!sc) continue;
-                Physics.IgnoreCollision(pc, sc, true);
-            }
+            hasShooter = true;
+            shooterClientId = shooterId.Value;
+        }
+        else
+        {
+            hasShooter = false;
+            shooterClientId = 0;
         }
     }
 
     private void FixedUpdate()
     {
         if (!IsServer) return;
-
-        if (!NetworkObject.IsSpawned) return;
+        if (!NetworkObject || !NetworkObject.IsSpawned) return;
+        if (hasHit) return;
 
         if (Time.time - spawnTime > lifetime)
         {
@@ -121,9 +78,7 @@ public class NetworkProjectile : NetworkBehaviour
             return;
         }
 
-        if (!armed || hasHit) return;
-
-        Vector3 curPos = rb.position;
+        Vector3 curPos = transform.position;
 
         if (!hasLastPos)
         {
@@ -132,18 +87,26 @@ public class NetworkProjectile : NetworkBehaviour
             return;
         }
 
-        Vector3 delta = curPos - lastPos;
+        float stepDist = speed * Time.fixedDeltaTime;
+        Vector3 nextPos = curPos + dir * stepDist;
+
+        // Sweep from current -> next to guarantee hit detection (no tunneling)
+        Vector3 delta = nextPos - lastPos;
         float dist = delta.magnitude;
 
         if (dist > 0.0001f)
         {
-            Vector3 dir = delta / dist;
+            Vector3 sweepDir = delta / dist;
 
-            // Deterministic sweep along the travelled path this fixed step
-            if (Physics.SphereCast(lastPos, sweepRadius, dir, out RaycastHit hit, dist, hitMask, QueryTriggerInteraction.Ignore))
+            if (Physics.SphereCast(lastPos, sweepRadius, sweepDir, out RaycastHit hit, dist, hitMask, QueryTriggerInteraction.Ignore))
             {
-                // Optional: avoid hitting other projectiles or triggers, etc.
-                // If you need, you can filter by tag/layer here.
+                if (ShouldIgnoreHit(hit.collider))
+                {
+                    // If we ignore (ex: shooter), keep moving this step
+                    transform.position = nextPos;
+                    lastPos = nextPos;
+                    return;
+                }
 
                 ApplyHit(hit.collider);
                 hasHit = true;
@@ -152,37 +115,43 @@ public class NetworkProjectile : NetworkBehaviour
             }
         }
 
-        lastPos = curPos;
+        // No hit: move forward deterministically
+        transform.position = nextPos;
+        lastPos = nextPos;
+    }
+
+    private bool ShouldIgnoreHit(Collider col)
+    {
+        if (!hasShooter) return false;
+
+        // Ignore hitting the shooter (by clientId)
+        // Works if shooter PlayerObject contains the collider we hit
+        var no = col.GetComponentInParent<NetworkObject>();
+        if (no == null) return false;
+
+        var nm = NetworkManager.Singleton;
+        if (nm == null) return false;
+
+        if (nm.ConnectedClients.TryGetValue(shooterClientId, out var client))
+        {
+            if (client.PlayerObject != null && no == client.PlayerObject)
+                return true;
+        }
+
+        return false;
     }
 
     private void ApplyHit(Collider col)
     {
-        // Apply damage server-side
         var hp = col.GetComponentInParent<Health>();
         if (hp != null && hp.IsAlive)
         {
             hp.ApplyDamage(damage);
-            Debug.Log($"[SERVER] Projectile hit {hp.name} for {damage}. HP now {hp.CurrentHP.Value}/{hp.MaxHP}");
+            Debug.Log($"[SERVER] Kinematic projectile hit {hp.name} for {damage}. HP now {hp.CurrentHP.Value}/{hp.MaxHP}");
         }
         else
         {
-            // Useful to confirm we hit world geometry too
-            Debug.Log($"[SERVER] Projectile hit {col.name} (no Health)");
-        }
-    }
-
-    private void DisablePhysicsCollisions()
-    {
-        // We keep colliders for visuals / queries, but stop physics bounce/collision response.
-        // Option A: set all colliders to triggers so they don't bounce.
-        // Option B: disable colliders entirely.
-        //
-        // We'll do Option A by default (safer for some setups).
-        var cols = GetComponentsInChildren<Collider>(true);
-        foreach (var c in cols)
-        {
-            if (!c) continue;
-            c.isTrigger = true;
+            Debug.Log($"[SERVER] Kinematic projectile hit {col.name} (no Health)");
         }
     }
 

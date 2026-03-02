@@ -101,7 +101,6 @@ GameObject:
   - component: {fileID: 1318056118106866656}
   - component: {fileID: 9107002009394075484}
   - component: {fileID: 459483041491911680}
-  - component: {fileID: 7782711543033191952}
   - component: {fileID: 1167280146663553041}
   - component: {fileID: 3828019419428671816}
   m_Layer: 6
@@ -198,33 +197,6 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
---- !u!54 &7782711543033191952
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9007764772209470593}
-  serializedVersion: 5
-  m_Mass: 1
-  m_LinearDamping: 0
-  m_AngularDamping: 0.05
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 1
-  m_IsKinematic: 0
-  m_Interpolate: 1
-  m_Constraints: 0
-  m_CollisionDetection: 2
 --- !u!135 &1167280146663553041
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -261,8 +233,8 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   lifetime: 2.5
   damage: 25
+  speed: 200
   sweepRadius: 0.06
   hitMask:
     serializedVersion: 2
     m_Bits: 257
-  armDelaySeconds: 0.02
