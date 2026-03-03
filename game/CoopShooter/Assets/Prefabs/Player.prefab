@@ -271,13 +271,14 @@ GameObject:
   - component: {fileID: 6686457148284037638}
   - component: {fileID: 2119766577153564314}
   - component: {fileID: 666066161801825246}
-  - component: {fileID: 7014404700196054614}
   - component: {fileID: 604687699012427340}
+  - component: {fileID: 7014404700196054614}
   - component: {fileID: 7764118954687072934}
   - component: {fileID: 1368962173765522441}
   - component: {fileID: 3859886096818169934}
   - component: {fileID: 1158056282913675681}
   - component: {fileID: 6498132116221345135}
+  - component: {fileID: 5136247905005152215}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -342,26 +343,6 @@ MonoBehaviour:
   moveSpeed: 6
   aimMoveSpeed: 4.5
   gravity: -18
---- !u!114 &7014404700196054614
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6042401852463695999}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c299b90d718cbcb40ad4410a6efdeea7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WeaponAimController
-  mainCam: {fileID: 0}
-  weaponPitchPivot: {fileID: 4191048085221356336}
-  weaponMuzzle: {fileID: 6479072513566796509}
-  maxAimDistance: 200
-  aimMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  pitchSmoothTime: 0.01
 --- !u!114 &604687699012427340
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -387,6 +368,34 @@ MonoBehaviour:
   AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
+--- !u!114 &7014404700196054614
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6042401852463695999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c299b90d718cbcb40ad4410a6efdeea7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponAimController
+  ShowTopMostFoldoutHeaderGroup: 1
+  mainCam: {fileID: 0}
+  playerRoot: {fileID: 6686457148284037638}
+  weaponPivot: {fileID: 4191048085221356336}
+  weaponMuzzle: {fileID: 6479072513566796509}
+  maxAimDistance: 200
+  aimMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  aimSharpness: 25
+  lockRoll: 1
+  netAim: {fileID: 5136247905005152215}
+  recoilReturnSpeed: 18
+  recoilSnappiness: 28
+  recoilMaxPitch: 18
+  recoilMaxYaw: 8
 --- !u!114 &7764118954687072934
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -502,21 +511,23 @@ MonoBehaviour:
   fullAuto: 1
   aimMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 257
   ignoreShooterCollision: 1
-  gunshotClip: {fileID: 8300000, guid: 1b145bcffd767854fb0c71c37678ebaa, type: 3}
-  gunshotVolume: 1
-  gunshotPitchMin: 0.95
-  gunshotPitchMax: 1.05
   recoilPitchPerShot: 10
   recoilYawJitter: 1
   recoilMaxPitch: 25
   recoilMaxYaw: 6
-  recoilReturnSpeed: 10
+  recoilReturnWhileFiring: 2
+  recoilReturnWhenReleased: 18
   recoilSnappiness: 15
+  recoilPivot: {fileID: 4191048085221356336}
   recoilPitchSign: -1
   recoilYawSign: 1
-  recoilPivot: {fileID: 4191048085221356336}
+  netAim: {fileID: 5136247905005152215}
+  gunshotClip: {fileID: 8300000, guid: 1b145bcffd767854fb0c71c37678ebaa, type: 3}
+  gunshotVolume: 1
+  gunshotPitchMin: 0.95
+  gunshotPitchMax: 1.05
 --- !u!114 &6498132116221345135
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -536,6 +547,19 @@ MonoBehaviour:
   logHealthChanges: 1
   CurrentHP:
     m_InternalValue: 0
+--- !u!114 &5136247905005152215
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6042401852463695999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c248306c474305a4ead1d9035aa175d0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkWeaponAim
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &6487970761737627794
 GameObject:
   m_ObjectHideFlags: 0

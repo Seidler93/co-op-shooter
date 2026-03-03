@@ -819,7 +819,7 @@ MonoBehaviour:
   - {fileID: 978138147}
   baseEnemies: 3
   enemiesPerRound: 2
-  initialStartDelay: 1
+  initialStartDelay: 100
   nextRoundDelay: 2
   logState: 1
   RoundNumber:

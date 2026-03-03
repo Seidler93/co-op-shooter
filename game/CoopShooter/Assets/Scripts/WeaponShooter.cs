@@ -23,7 +23,7 @@ public class WeaponShooter : NetworkBehaviour
     [Header("Collision")]
     [SerializeField] private bool ignoreShooterCollision = true;
 
-     [Header("Recoil (client-only feel)")]
+    [Header("Recoil (client-only feel)")]
     [Tooltip("Degrees of pitch added per shot (magnitude; direction controlled by recoilPitchSign).")]
     [SerializeField] private float recoilPitchPerShot = 1.2f;
 
@@ -42,7 +42,7 @@ public class WeaponShooter : NetworkBehaviour
     [Tooltip("How fast current recoil follows the target.")]
     [SerializeField] private float recoilSnappiness = 28f;
 
-    [Tooltip("Assign the transform you want to visually recoil (gun pitch pivot or cam pivot).")]
+    [Tooltip("Assign the transform you want to visually recoil (gun pivot).")]
     [SerializeField] private Transform recoilPivot;
 
     [Tooltip("Flip if recoil goes the wrong direction on your rig. Start with -1 for kick-up in many setups.")]
@@ -50,6 +50,10 @@ public class WeaponShooter : NetworkBehaviour
 
     [Tooltip("Flip if yaw jitter goes the wrong direction.")]
     [SerializeField] private float recoilYawSign = 1f;
+
+    [Header("Networking (optional)")]
+    [Tooltip("Optional: replicate weapon aim + recoil to other clients using NetworkWeaponAim on the Player root.")]
+    [SerializeField] private NetworkWeaponAim netAim;
 
     // Recoil state
     private Vector2 recoilTarget;  // x=pitch, y=yaw
@@ -73,19 +77,32 @@ public class WeaponShooter : NetworkBehaviour
     {
         if (!IsOwner) return;
 
+        if (!netAim)
+            netAim = GetComponentInParent<NetworkWeaponAim>();
+
         input = new PlayerControls();
         input.Enable();
 
         fireAction = input.Gameplay.Fire;
+
         ownerCam = Camera.main;
+
+        // If recoilPivot isn't assigned, try to find something sensible
+        if (!recoilPivot && muzzle)
+            recoilPivot = muzzle.parent;
+
+        // Initialize base rot so first shot doesn't pop
+        if (recoilPivot)
+            recoilBaseLocalRot = recoilPivot.localRotation;
     }
 
-    private void OnDestroy()
+    public override void OnNetworkDespawn()
     {
         if (IsOwner && input != null)
         {
             input.Disable();
             input.Dispose();
+            input = null;
         }
     }
 
@@ -93,14 +110,12 @@ public class WeaponShooter : NetworkBehaviour
     {
         if (!IsOwner) return;
         if (muzzle == null || projectilePrefab == null) return;
-
         if (fireAction == null) return;
 
         // Held state used by recoil behavior
         fireHeld = fireAction.IsPressed();
 
-        // Cache the "base" local rotation AFTER your aim/weapon logic has done its work this frame.
-        // Recoil will be applied additively in LateUpdate so it won't get stomped while spraying.
+        // Cache base rotation AFTER aim controller has run (we apply recoil additively in LateUpdate)
         if (recoilPivot != null)
             recoilBaseLocalRot = recoilPivot.localRotation;
 
@@ -138,8 +153,12 @@ public class WeaponShooter : NetworkBehaviour
         // Instant local audio for shooter (zero latency feel)
         PlayLocalGunshot(muzzle.position);
 
-        // Recoil accumulates per shot (visual gets applied in LateUpdate)
-        ApplyRecoil();
+        // Apply local recoil (visual only, local feel)
+        Vector2 kick = ApplyRecoilAndReturnKick();
+
+        // Optional: replicate recoil as a visual event for other clients (does not affect their camera)
+        if (netAim != null)
+            netAim.OwnerTriggerRecoil(kick);
 
         FireServerRpc(muzzle.position, rot, initialVel);
     }
@@ -150,13 +169,24 @@ public class WeaponShooter : NetworkBehaviour
         UpdateRecoil(Time.deltaTime);
     }
 
-    private void ApplyRecoil()
+    // Returns the exact kick we applied (so it can be replicated consistently)
+    private Vector2 ApplyRecoilAndReturnKick()
     {
-        recoilTarget.x += recoilPitchPerShot;
-        recoilTarget.y += Random.Range(-recoilYawJitter, recoilYawJitter);
+        float pitchKick = recoilPitchPerShot;
+        float yawKick = Random.Range(-recoilYawJitter, recoilYawJitter);
+
+        // Local accumulation stays in "magnitude space"
+        recoilTarget.x += pitchKick;
+        recoilTarget.y += yawKick;
 
         recoilTarget.x = Mathf.Clamp(recoilTarget.x, 0f, recoilMaxPitch);
         recoilTarget.y = Mathf.Clamp(recoilTarget.y, -recoilMaxYaw, recoilMaxYaw);
+
+        // ✅ Replicate in "applied sign space" so remotes match what you see
+        float signedPitch = pitchKick * recoilPitchSign; // usually - = kick up depending on rig
+        float signedYaw = yawKick * recoilYawSign;
+
+        return new Vector2(signedPitch, signedYaw);
     }
 
     private void UpdateRecoil(float dt)
@@ -165,7 +195,7 @@ public class WeaponShooter : NetworkBehaviour
 
         float returnSpeed = fireHeld ? recoilReturnWhileFiring : recoilReturnWhenReleased;
 
-        // Return target to zero (use different return speed while firing vs released)
+        // Return target to zero
         recoilTarget = Vector2.Lerp(recoilTarget, Vector2.zero, returnSpeed * dt);
 
         // Smooth current toward target
@@ -174,12 +204,12 @@ public class WeaponShooter : NetworkBehaviour
         float pitch = recoilCurrent.x * recoilPitchSign;
         float yaw = recoilCurrent.y * recoilYawSign;
 
-        // Offset around explicit local axes (robust across rigs)
+        // Offset around explicit local axes
         Quaternion pitchRot = Quaternion.AngleAxis(pitch, Vector3.right);
         Quaternion yawRot = Quaternion.AngleAxis(yaw, Vector3.up);
         Quaternion recoilOffset = yawRot * pitchRot;
 
-        // Apply additively ON TOP of cached base rotation (prevents "no recoil while firing" stomp)
+        // Apply additively on top of cached base rotation
         recoilPivot.localRotation = recoilBaseLocalRot * recoilOffset;
     }
 
@@ -221,7 +251,6 @@ public class WeaponShooter : NetworkBehaviour
     private void PlayLocalGunshot(Vector3 position)
     {
         if (!gunshotClip) return;
-
         AudioSource.PlayClipAtPoint(gunshotClip, position, gunshotVolume);
     }
 
