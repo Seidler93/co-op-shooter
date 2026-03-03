@@ -1,3 +1,4 @@
+using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -5,7 +6,7 @@ using UnityEngine.InputSystem;
 public class WeaponShooter : NetworkBehaviour
 {
     [Header("Refs")]
-    [SerializeField] private Transform muzzle;
+    [SerializeField] private Transform muzzle;                 // ballistic muzzle (used for direction + server spawn input)
     [SerializeField] private NetworkObject projectilePrefab;
 
     [Header("Tuning")]
@@ -52,11 +53,37 @@ public class WeaponShooter : NetworkBehaviour
     [SerializeField] private float recoilYawSign = 1f;
 
     [Header("Networking (optional)")]
-    [Tooltip("Optional: replicate weapon aim + recoil to other clients using NetworkWeaponAim on the Player root.")]
+    [Tooltip("Optional: replicate weapon recoil to other clients using NetworkWeaponAim on the Player root.")]
     [SerializeField] private NetworkWeaponAim netAim;
 
+    [Header("Audio")]
+    [SerializeField] private AudioClip gunshotClip;
+    [SerializeField] private float gunshotVolume = 1f;
+    [SerializeField] private float gunshotPitchMin = 0.95f;
+    [SerializeField] private float gunshotPitchMax = 1.05f;
+
+    [Header("Local Tracer Travel (Owner Only)")]
+    [SerializeField] private bool useLocalTracer = true;
+
+    [Tooltip("The muzzle used for VFX/tracer (usually affected by recoil). If null, falls back to muzzle.")]
+    [SerializeField] private Transform visualMuzzle;
+
+    [SerializeField] private float tracerWidth = 0.02f;
+
+    [Tooltip("How fast the tracer head travels (units/sec). Try matching projectileSpeed or higher.")]
+    [SerializeField] private float tracerSpeed = 120f;
+
+    [Tooltip("Maximum lifetime (seconds) so tracers don't linger at long range.")]
+    [SerializeField] private float tracerMaxLifetime = 0.20f;
+
+    [Tooltip("Tail length behind the tracer head (units).")]
+    [SerializeField] private float tracerTailLength = 1.5f;
+
+    [Tooltip("Material for the tracer. Recommended to assign in inspector. If null, uses Sprites/Default.")]
+    [SerializeField] private Material tracerMaterial;
+
     // Recoil state
-    private Vector2 recoilTarget;  // x=pitch, y=yaw
+    private Vector2 recoilTarget;  // x=pitch (magnitude), y=yaw (magnitude)
     private Vector2 recoilCurrent;
     private Quaternion recoilBaseLocalRot;
     private bool fireHeld;
@@ -66,12 +93,6 @@ public class WeaponShooter : NetworkBehaviour
 
     private float nextFireTime;
     private Camera ownerCam;
-
-    [Header("Audio")]
-    [SerializeField] private AudioClip gunshotClip;
-    [SerializeField] private float gunshotVolume = 1f;
-    [SerializeField] private float gunshotPitchMin = 0.95f;
-    [SerializeField] private float gunshotPitchMax = 1.05f;
 
     public override void OnNetworkSpawn()
     {
@@ -87,9 +108,12 @@ public class WeaponShooter : NetworkBehaviour
 
         ownerCam = Camera.main;
 
-        // If recoilPivot isn't assigned, try to find something sensible
+        // Sensible defaults
         if (!recoilPivot && muzzle)
             recoilPivot = muzzle.parent;
+
+        if (!visualMuzzle && muzzle)
+            visualMuzzle = muzzle;
 
         // Initialize base rot so first shot doesn't pop
         if (recoilPivot)
@@ -134,24 +158,41 @@ public class WeaponShooter : NetworkBehaviour
         if (ownerCam == null) return;
 
         // Ray from screen center
-        Ray ray = ownerCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        Ray camRay = ownerCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
 
         Vector3 aimPoint;
-        if (Physics.Raycast(ray, out RaycastHit hit, maxAimDistance, aimMask, QueryTriggerInteraction.Ignore))
-            aimPoint = hit.point;
+        if (Physics.Raycast(camRay, out RaycastHit camHit, maxAimDistance, aimMask, QueryTriggerInteraction.Ignore))
+            aimPoint = camHit.point;
         else
-            aimPoint = ray.origin + ray.direction * maxAimDistance;
+            aimPoint = camRay.origin + camRay.direction * maxAimDistance;
 
+        // Shot direction is from muzzle to aimPoint (your current behavior)
         Vector3 dir = (aimPoint - muzzle.position);
         if (dir.sqrMagnitude < 0.0001f)
             dir = muzzle.forward;
         dir.Normalize();
 
+        // LOCAL TRACER: use the actual muzzle-line hit (so strafing/cover matches shot path)
+        if (useLocalTracer)
+        {
+            Vector3 tracerStart = (visualMuzzle != null) ? visualMuzzle.position : muzzle.position;
+
+            Vector3 muzzleLineEnd = muzzle.position + dir * maxAimDistance;
+            if (Physics.Raycast(muzzle.position, dir, out RaycastHit tHit, maxAimDistance, aimMask, QueryTriggerInteraction.Ignore))
+                muzzleLineEnd = tHit.point;
+
+            float dist = Vector3.Distance(muzzle.position, muzzleLineEnd);
+            Vector3 tracerEnd = tracerStart + dir * dist;
+
+            SpawnTravelingTracer(tracerStart, tracerEnd);
+        }
+
         Quaternion rot = Quaternion.LookRotation(dir, Vector3.up);
         Vector3 initialVel = dir * projectileSpeed;
 
         // Instant local audio for shooter (zero latency feel)
-        PlayLocalGunshot(muzzle.position);
+        Vector3 shotAudioPos = (visualMuzzle != null) ? visualMuzzle.position : muzzle.position;
+        PlayLocalGunshot(shotAudioPos);
 
         // Apply local recoil (visual only, local feel)
         Vector2 kick = ApplyRecoilAndReturnKick();
@@ -160,6 +201,7 @@ public class WeaponShooter : NetworkBehaviour
         if (netAim != null)
             netAim.OwnerTriggerRecoil(kick);
 
+        // NOTE: still using client-provided spawnPos for prototype
         FireServerRpc(muzzle.position, rot, initialVel);
     }
 
@@ -169,22 +211,22 @@ public class WeaponShooter : NetworkBehaviour
         UpdateRecoil(Time.deltaTime);
     }
 
-    // Returns the exact kick we applied (so it can be replicated consistently)
+    // Returns the exact kick we applied for replication (SIGNED space)
     private Vector2 ApplyRecoilAndReturnKick()
     {
-        float pitchKick = recoilPitchPerShot;
-        float yawKick = Random.Range(-recoilYawJitter, recoilYawJitter);
+        float pitchKickMag = recoilPitchPerShot;
+        float yawKickMag = Random.Range(-recoilYawJitter, recoilYawJitter);
 
-        // Local accumulation stays in "magnitude space"
-        recoilTarget.x += pitchKick;
-        recoilTarget.y += yawKick;
+        // Local accumulation stays in magnitude space
+        recoilTarget.x += pitchKickMag;
+        recoilTarget.y += yawKickMag;
 
         recoilTarget.x = Mathf.Clamp(recoilTarget.x, 0f, recoilMaxPitch);
         recoilTarget.y = Mathf.Clamp(recoilTarget.y, -recoilMaxYaw, recoilMaxYaw);
 
-        // ✅ Replicate in "applied sign space" so remotes match what you see
-        float signedPitch = pitchKick * recoilPitchSign; // usually - = kick up depending on rig
-        float signedYaw = yawKick * recoilYawSign;
+        // Replicate in applied sign space so remotes match direction
+        float signedPitch = pitchKickMag * recoilPitchSign; // often negative means kick-up on many rigs
+        float signedYaw = yawKickMag * recoilYawSign;
 
         return new Vector2(signedPitch, signedYaw);
     }
@@ -291,5 +333,72 @@ public class WeaponShooter : NetworkBehaviour
         }
 
         return result.ToArray();
+    }
+
+    // -----------------------------
+    // Traveling Local Tracer (owner)
+    // -----------------------------
+
+    private void SpawnTravelingTracer(Vector3 start, Vector3 end)
+    {
+        GameObject go = new GameObject("LocalTracer");
+        go.transform.position = start;
+
+        var lr = go.AddComponent<LineRenderer>();
+        lr.positionCount = 2;
+
+        lr.startWidth = tracerWidth;
+        lr.endWidth = tracerWidth * 0.6f;
+
+        lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        lr.receiveShadows = false;
+
+        // Material (avoid creating a new material per shot if you assign one in inspector)
+        lr.material = tracerMaterial != null
+            ? tracerMaterial
+            : new Material(Shader.Find("Sprites/Default"));
+
+        // Start as 0-length at muzzle
+        lr.SetPosition(0, start);
+        lr.SetPosition(1, start);
+
+        StartCoroutine(TravelTracerRoutine(lr, start, end));
+    }
+
+    private IEnumerator TravelTracerRoutine(LineRenderer lr, Vector3 start, Vector3 end)
+    {
+        float totalDist = Vector3.Distance(start, end);
+        if (totalDist < 0.001f)
+        {
+            if (lr != null) Destroy(lr.gameObject);
+            yield break;
+        }
+
+        float speed = Mathf.Max(1f, tracerSpeed);
+        float travelTime = totalDist / speed;
+
+        // Cap lifetime
+        travelTime = Mathf.Min(travelTime, tracerMaxLifetime);
+
+        float t = 0f;
+        Vector3 dir = (end - start).normalized;
+
+        while (t < 1f && lr != null)
+        {
+            t += Time.deltaTime / travelTime;
+
+            Vector3 head = Vector3.Lerp(start, end, t);
+
+            float tailDist = Mathf.Min(tracerTailLength, Vector3.Distance(start, head));
+            Vector3 tail = head - dir * tailDist;
+
+            lr.SetPosition(0, tail);
+            lr.SetPosition(1, head);
+
+            yield return null;
+        }
+
+        if (lr != null)
+            Destroy(lr.gameObject);
     }
 }

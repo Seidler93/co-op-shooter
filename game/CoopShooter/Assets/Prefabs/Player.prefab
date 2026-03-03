@@ -515,7 +515,7 @@ MonoBehaviour:
   ignoreShooterCollision: 1
   recoilPitchPerShot: 10
   recoilYawJitter: 1
-  recoilMaxPitch: 25
+  recoilMaxPitch: 15
   recoilMaxYaw: 6
   recoilReturnWhileFiring: 2
   recoilReturnWhenReleased: 18
@@ -528,6 +528,13 @@ MonoBehaviour:
   gunshotVolume: 1
   gunshotPitchMin: 0.95
   gunshotPitchMax: 1.05
+  useLocalTracer: 1
+  visualMuzzle: {fileID: 6479072513566796509}
+  tracerWidth: 0.025
+  tracerSpeed: 120
+  tracerMaxLifetime: 0.2
+  tracerTailLength: 1.5
+  tracerMaterial: {fileID: 0}
 --- !u!114 &6498132116221345135
 MonoBehaviour:
   m_ObjectHideFlags: 0
