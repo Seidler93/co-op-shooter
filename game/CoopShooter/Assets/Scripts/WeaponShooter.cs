@@ -12,6 +12,8 @@ public class WeaponShooter : NetworkBehaviour
     [SerializeField] private float projectileSpeed = 35f;
     [SerializeField] private float maxAimDistance = 250f;
     [SerializeField] private float fireCooldown = 0.12f;
+
+    [Header("Fire Mode")]
     [SerializeField] private bool fullAuto = true;
 
     [Header("Aim Raycast")]
@@ -21,17 +23,51 @@ public class WeaponShooter : NetworkBehaviour
     [Header("Collision")]
     [SerializeField] private bool ignoreShooterCollision = true;
 
-    [Header("Audio")]
-    [SerializeField] private AudioClip gunshotClip;
-    [SerializeField] private float gunshotVolume = 1f;
-    [SerializeField] private float gunshotPitchMin = 0.95f;
-    [SerializeField] private float gunshotPitchMax = 1.05f;
+     [Header("Recoil (client-only feel)")]
+    [Tooltip("Degrees of pitch added per shot (magnitude; direction controlled by recoilPitchSign).")]
+    [SerializeField] private float recoilPitchPerShot = 1.2f;
+
+    [Tooltip("Random yaw added per shot (left/right).")]
+    [SerializeField] private float recoilYawJitter = 0.6f;
+
+    [SerializeField] private float recoilMaxPitch = 18f;
+    [SerializeField] private float recoilMaxYaw = 8f;
+
+    [Tooltip("How quickly recoil target returns to 0 while holding fire (LOWER = more climb during spray).")]
+    [SerializeField] private float recoilReturnWhileFiring = 2f;
+
+    [Tooltip("How quickly recoil target returns to 0 after releasing fire.")]
+    [SerializeField] private float recoilReturnWhenReleased = 18f;
+
+    [Tooltip("How fast current recoil follows the target.")]
+    [SerializeField] private float recoilSnappiness = 28f;
+
+    [Tooltip("Assign the transform you want to visually recoil (gun pitch pivot or cam pivot).")]
+    [SerializeField] private Transform recoilPivot;
+
+    [Tooltip("Flip if recoil goes the wrong direction on your rig. Start with -1 for kick-up in many setups.")]
+    [SerializeField] private float recoilPitchSign = -1f;
+
+    [Tooltip("Flip if yaw jitter goes the wrong direction.")]
+    [SerializeField] private float recoilYawSign = 1f;
+
+    // Recoil state
+    private Vector2 recoilTarget;  // x=pitch, y=yaw
+    private Vector2 recoilCurrent;
+    private Quaternion recoilBaseLocalRot;
+    private bool fireHeld;
 
     private PlayerControls input;
     private InputAction fireAction;
 
     private float nextFireTime;
     private Camera ownerCam;
+
+    [Header("Audio")]
+    [SerializeField] private AudioClip gunshotClip;
+    [SerializeField] private float gunshotVolume = 1f;
+    [SerializeField] private float gunshotPitchMin = 0.95f;
+    [SerializeField] private float gunshotPitchMax = 1.05f;
 
     public override void OnNetworkSpawn()
     {
@@ -44,15 +80,12 @@ public class WeaponShooter : NetworkBehaviour
         ownerCam = Camera.main;
     }
 
-    public override void OnNetworkDespawn()
+    private void OnDestroy()
     {
-        if (!IsOwner) return;
-
-        if (input != null)
+        if (IsOwner && input != null)
         {
             input.Disable();
             input.Dispose();
-            input = null;
         }
     }
 
@@ -60,20 +93,32 @@ public class WeaponShooter : NetworkBehaviour
     {
         if (!IsOwner) return;
         if (muzzle == null || projectilePrefab == null) return;
-        if (Time.time < nextFireTime) return;
+
         if (fireAction == null) return;
 
+        // Held state used by recoil behavior
+        fireHeld = fireAction.IsPressed();
+
+        // Cache the "base" local rotation AFTER your aim/weapon logic has done its work this frame.
+        // Recoil will be applied additively in LateUpdate so it won't get stomped while spraying.
+        if (recoilPivot != null)
+            recoilBaseLocalRot = recoilPivot.localRotation;
+
+        // Fire input (semi vs auto)
         bool wantsFire = fullAuto
             ? fireAction.IsPressed()
             : fireAction.WasPressedThisFrame();
 
         if (!wantsFire) return;
 
+        // Fire rate gate
+        if (Time.time < nextFireTime) return;
         nextFireTime = Time.time + fireCooldown;
 
         if (ownerCam == null) ownerCam = Camera.main;
         if (ownerCam == null) return;
 
+        // Ray from screen center
         Ray ray = ownerCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
 
         Vector3 aimPoint;
@@ -90,9 +135,52 @@ public class WeaponShooter : NetworkBehaviour
         Quaternion rot = Quaternion.LookRotation(dir, Vector3.up);
         Vector3 initialVel = dir * projectileSpeed;
 
+        // Instant local audio for shooter (zero latency feel)
         PlayLocalGunshot(muzzle.position);
 
+        // Recoil accumulates per shot (visual gets applied in LateUpdate)
+        ApplyRecoil();
+
         FireServerRpc(muzzle.position, rot, initialVel);
+    }
+
+    private void LateUpdate()
+    {
+        if (!IsOwner) return;
+        UpdateRecoil(Time.deltaTime);
+    }
+
+    private void ApplyRecoil()
+    {
+        recoilTarget.x += recoilPitchPerShot;
+        recoilTarget.y += Random.Range(-recoilYawJitter, recoilYawJitter);
+
+        recoilTarget.x = Mathf.Clamp(recoilTarget.x, 0f, recoilMaxPitch);
+        recoilTarget.y = Mathf.Clamp(recoilTarget.y, -recoilMaxYaw, recoilMaxYaw);
+    }
+
+    private void UpdateRecoil(float dt)
+    {
+        if (recoilPivot == null) return;
+
+        float returnSpeed = fireHeld ? recoilReturnWhileFiring : recoilReturnWhenReleased;
+
+        // Return target to zero (use different return speed while firing vs released)
+        recoilTarget = Vector2.Lerp(recoilTarget, Vector2.zero, returnSpeed * dt);
+
+        // Smooth current toward target
+        recoilCurrent = Vector2.Lerp(recoilCurrent, recoilTarget, recoilSnappiness * dt);
+
+        float pitch = recoilCurrent.x * recoilPitchSign;
+        float yaw = recoilCurrent.y * recoilYawSign;
+
+        // Offset around explicit local axes (robust across rigs)
+        Quaternion pitchRot = Quaternion.AngleAxis(pitch, Vector3.right);
+        Quaternion yawRot = Quaternion.AngleAxis(yaw, Vector3.up);
+        Quaternion recoilOffset = yawRot * pitchRot;
+
+        // Apply additively ON TOP of cached base rotation (prevents "no recoil while firing" stomp)
+        recoilPivot.localRotation = recoilBaseLocalRot * recoilOffset;
     }
 
     [ServerRpc]

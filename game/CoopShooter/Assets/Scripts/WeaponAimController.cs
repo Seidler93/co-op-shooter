@@ -4,7 +4,7 @@ public class WeaponAimController : MonoBehaviour
 {
     [Header("Refs")]
     [SerializeField] private Camera mainCam;
-    [SerializeField] private Transform weaponPitchPivot;
+    [SerializeField] private Transform weaponPivot;      // your handle pivot (single pivot)
     [SerializeField] private Transform weaponMuzzle;
 
     [Header("Aim")]
@@ -12,23 +12,15 @@ public class WeaponAimController : MonoBehaviour
     [SerializeField] private LayerMask aimMask = ~0;
 
     [Header("Smoothing")]
-    [Tooltip("0 = immediate. Try 0.04–0.08 for modern TPS.")]
-    [SerializeField] private float pitchSmoothTime = 0.06f;
+    [Tooltip("0 = immediate. Try 18–30 for modern TPS.")]
+    [SerializeField] private float aimSharpness = 25f;
 
-    private float currentPitch;
-    private float pitchVel;
+    [Tooltip("Prevents the gun from rolling sideways.")]
+    [SerializeField] private bool lockRoll = true;
 
-    void Start()
+    private void LateUpdate()
     {
-        // Initialize currentPitch from the pivot so there’s no first-frame pop
-        float p = weaponPitchPivot.localEulerAngles.x;
-        if (p > 180f) p -= 360f;
-        currentPitch = p;
-    }
-
-    void LateUpdate()
-    {
-        if (!mainCam || !weaponPitchPivot) return;
+        if (!mainCam || !weaponPivot) return;
 
         Ray ray = mainCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
 
@@ -36,24 +28,26 @@ public class WeaponAimController : MonoBehaviour
         if (Physics.Raycast(ray, out RaycastHit hit, maxAimDistance, aimMask, QueryTriggerInteraction.Ignore))
             aimPoint = hit.point;
 
-        Vector3 origin = weaponMuzzle ? weaponMuzzle.position : weaponPitchPivot.position;
+        Vector3 origin = weaponMuzzle ? weaponMuzzle.position : weaponPivot.position;
         Vector3 dir = aimPoint - origin;
         if (dir.sqrMagnitude < 0.0001f) return;
 
-        Transform parent = weaponPitchPivot.parent;
-        Vector3 localDir = parent ? parent.InverseTransformDirection(dir.normalized) : dir.normalized;
+        Quaternion desired = Quaternion.LookRotation(dir.normalized, Vector3.up);
 
-        float targetPitch = -Mathf.Atan2(localDir.y, new Vector2(localDir.x, localDir.z).magnitude) * Mathf.Rad2Deg;
-
-        if (pitchSmoothTime <= 0f)
+        if (lockRoll)
         {
-            currentPitch = targetPitch; // immediate
-        }
-        else
-        {
-            currentPitch = Mathf.SmoothDampAngle(currentPitch, targetPitch, ref pitchVel, pitchSmoothTime);
+            Vector3 e = desired.eulerAngles;
+            desired = Quaternion.Euler(NormalizeAngle(e.x), NormalizeAngle(e.y), 0f);
         }
 
-        weaponPitchPivot.localRotation = Quaternion.Euler(currentPitch, 0f, 0f);
+        float t = 1f - Mathf.Exp(-aimSharpness * Time.deltaTime);
+        weaponPivot.rotation = Quaternion.Slerp(weaponPivot.rotation, desired, t);
+    }
+
+    private float NormalizeAngle(float a)
+    {
+        while (a > 180f) a -= 360f;
+        while (a < -180f) a += 360f;
+        return a;
     }
 }

@@ -508,6 +508,15 @@ MonoBehaviour:
   gunshotVolume: 1
   gunshotPitchMin: 0.95
   gunshotPitchMax: 1.05
+  recoilPitchPerShot: 10
+  recoilYawJitter: 1
+  recoilMaxPitch: 25
+  recoilMaxYaw: 6
+  recoilReturnSpeed: 10
+  recoilSnappiness: 15
+  recoilPitchSign: -1
+  recoilYawSign: 1
+  recoilPivot: {fileID: 4191048085221356336}
 --- !u!114 &6498132116221345135
 MonoBehaviour:
   m_ObjectHideFlags: 0
