@@ -62,6 +62,16 @@ public class WeaponShooter : NetworkBehaviour
     [SerializeField] private float gunshotPitchMin = 0.95f;
     [SerializeField] private float gunshotPitchMax = 1.05f;
 
+    [Header("Bloom / Spread")]
+    [SerializeField] private float hipBloomDeg = 1.5f;
+    [SerializeField] private float adsBloomDeg = 0.35f;
+    [SerializeField] private float bloomGrowPerShot = 0.12f;   // full-auto growth
+    [SerializeField] private float bloomMaxExtra = 3.0f;
+    [SerializeField] private float bloomRecoverSpeed = 10f;
+
+    private float bloomExtra;
+    private CameraController camController;
+
     [Header("Local Tracer Travel (Owner Only)")]
     [SerializeField] private bool useLocalTracer = true;
 
@@ -107,6 +117,11 @@ public class WeaponShooter : NetworkBehaviour
         fireAction = input.Gameplay.Fire;
 
         ownerCam = Camera.main;
+
+        if (ownerCam != null)
+            camController = ownerCam.GetComponentInParent<CameraController>();
+        if (camController == null)
+            camController = GetComponentInParent<CameraController>();
 
         // Sensible defaults
         if (!recoilPivot && muzzle)
@@ -171,6 +186,27 @@ public class WeaponShooter : NetworkBehaviour
         if (dir.sqrMagnitude < 0.0001f)
             dir = muzzle.forward;
         dir.Normalize();
+
+        // ---- Bloom (spread) ----
+        bool aiming = camController != null && camController.IsAiming;
+
+        float baseBloom = aiming ? adsBloomDeg : hipBloomDeg;
+
+        // grow while firing, recover when not firing
+        if (fireHeld)
+        {
+            float grow = aiming ? bloomGrowPerShot * 0.35f : bloomGrowPerShot;
+            bloomExtra = Mathf.Min(bloomExtra + grow, bloomMaxExtra);
+        }
+        else
+        {
+            float recover = aiming ? bloomRecoverSpeed * 1.5f : bloomRecoverSpeed;
+            bloomExtra = Mathf.MoveTowards(bloomExtra, 0f, recover * Time.deltaTime);
+        }
+
+        float bloomDeg = baseBloom + bloomExtra;
+
+        dir = ApplyBloomCameraRelative(dir, bloomDeg);
 
         // LOCAL TRACER: use the actual muzzle-line hit (so strafing/cover matches shot path)
         if (useLocalTracer)
@@ -400,5 +436,19 @@ public class WeaponShooter : NetworkBehaviour
 
         if (lr != null)
             Destroy(lr.gameObject);
+    }
+
+    private Vector3 ApplyBloomCameraRelative(Vector3 direction, float maxAngleDeg)
+    {
+        if (maxAngleDeg <= 0f) return direction;
+
+        // random point in circle -> yaw/pitch offsets
+        Vector2 r = Random.insideUnitCircle * maxAngleDeg;
+
+        Vector3 up = ownerCam ? ownerCam.transform.up : Vector3.up;
+        Vector3 right = ownerCam ? ownerCam.transform.right : Vector3.right;
+
+        Quaternion spread = Quaternion.AngleAxis(r.x, up) * Quaternion.AngleAxis(-r.y, right);
+        return (spread * direction).normalized;
     }
 }

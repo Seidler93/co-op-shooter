@@ -35,6 +35,8 @@ public class CameraController : MonoBehaviour
     [SerializeField] private Vector3 defaultShoulderOffset = new Vector3(0.55f, 0.10f, 0f);
     [SerializeField] private Vector3 aimShoulderOffset = new Vector3(0.35f, 0.10f, 0f);
 
+    public bool IsAiming { get; private set; }
+
     private float pitch;
 
     private PlayerControls input;
@@ -168,23 +170,20 @@ public class CameraController : MonoBehaviour
     {
         if (!cmCam || !thirdFollow) return;
 
-        bool aiming = aimAction != null && aimAction.IsPressed();
+        IsAiming = aimAction != null && aimAction.IsPressed();
 
-        float targetFov = aiming ? aimFov : defaultFov;
-        float targetDist = aiming ? aimDistance : defaultDistance;
-        Vector3 targetShoulder = aiming ? aimShoulderOffset : defaultShoulderOffset;
+        float targetFov = IsAiming ? aimFov : defaultFov;
+        float targetDist = IsAiming ? aimDistance : defaultDistance;
+        Vector3 targetShoulder = IsAiming ? aimShoulderOffset : defaultShoulderOffset;
 
         float t = 1f - Mathf.Exp(-zoomSharpness * Time.deltaTime);
 
-        // Smooth FOV
         var lens = cmCam.Lens;
         lens.FieldOfView = Mathf.Lerp(lens.FieldOfView, targetFov, t);
         cmCam.Lens = lens;
 
-        // Smooth distance
         thirdFollow.CameraDistance = Mathf.Lerp(thirdFollow.CameraDistance, targetDist, t);
 
-        // Optional shoulder offset
         if (adjustShoulderOffset)
             thirdFollow.ShoulderOffset = Vector3.Lerp(thirdFollow.ShoulderOffset, targetShoulder, t);
     }
