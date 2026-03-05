@@ -270,6 +270,7 @@ GameObject:
   - component: {fileID: 3444253874578363310}
   - component: {fileID: 7027853268894729476}
   - component: {fileID: 6241106868732311615}
+  - component: {fileID: 2353174789544736303}
   m_Layer: 0
   m_Name: RightHand
   m_TagString: Untagged
@@ -371,6 +372,31 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &2353174789544736303
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3685182622954657889}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 424af4ff3e9760247a2268ec44db4cbd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponIdleSway
+  cameraTransform: {fileID: 0}
+  idlePosAmount: 0.01
+  idleRotAmount: 0.6
+  idleSpeed: 1.2
+  lookPosAmount: 0.0025
+  lookRotAmount: 0.8
+  lookSmooth: 12
+  moveMultiplier: 1.5
+  aimMultiplier: 0.35
+  posLerp: 14
+  rotLerp: 14
+  moveInput: {x: 0, y: 0}
+  isAiming: 0
 --- !u!1 &5295350031598648262
 GameObject:
   m_ObjectHideFlags: 0
@@ -684,6 +710,7 @@ MonoBehaviour:
   moveSpeed: 6
   aimMoveSpeed: 4.5
   gravity: -18
+  weaponSway: {fileID: 0}
 --- !u!114 &604687699012427340
 MonoBehaviour:
   m_ObjectHideFlags: 0

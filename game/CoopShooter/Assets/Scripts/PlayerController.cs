@@ -12,6 +12,8 @@ public class PlayerController : MonoBehaviour
     private CharacterController cc;
     private Vector3 verticalVel;
 
+    [SerializeField] private WeaponIdleSway weaponSway;
+
     // Input
     private PlayerControls input;
     private InputAction moveAction;
@@ -44,10 +46,15 @@ public class PlayerController : MonoBehaviour
         float speed = IsAiming ? aimMoveSpeed : moveSpeed;
 
         Vector2 moveInput = moveAction.ReadValue<Vector2>();
-        float x = moveInput.x;
-        float z = moveInput.y;
 
-        Vector3 move = transform.right * x + transform.forward * z;
+        // Pass input into sway (Vector2)
+        if (weaponSway != null)
+        {
+            weaponSway.moveInput = moveInput;
+            weaponSway.isAiming = IsAiming;
+        }
+
+        Vector3 move = transform.right * moveInput.x + transform.forward * moveInput.y;
         if (move.sqrMagnitude > 1f) move.Normalize();
 
         cc.Move(move * speed * Time.deltaTime);
