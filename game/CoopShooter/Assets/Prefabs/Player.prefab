@@ -696,7 +696,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1253330548
+  GlobalObjectIdHash: 2560019461
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -854,6 +854,13 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 257
   ignoreShooterCollision: 1
+  hipBloomDeg: 1
+  adsBloomDeg: 0.2
+  bloomGrowPerShot: 0.08
+  bloomMaxExtra: 1.75
+  bloomRecoverSpeed: 12
+  crosshair: {fileID: 0}
+  moveSpeedForMax: 6
   recoilPitchPerShot: 10
   recoilYawJitter: 1
   recoilMaxPitch: 15
@@ -869,11 +876,6 @@ MonoBehaviour:
   gunshotVolume: 1
   gunshotPitchMin: 0.95
   gunshotPitchMax: 1.05
-  hipBloomDeg: 0.75
-  adsBloomDeg: 0.15
-  bloomGrowPerShot: 0.06
-  bloomMaxExtra: 1.5
-  bloomRecoverSpeed: 12
   useLocalTracer: 1
   visualMuzzle: {fileID: 6479072513566796509}
   tracerWidth: 0.025

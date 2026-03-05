@@ -18,7 +18,12 @@ public class PlayerController : MonoBehaviour
 
     public bool IsAiming { get; set; }
 
-    void Awake()
+    // Used by WeaponShooter to drive movement crosshair spread
+    public float PlanarSpeed => cc != null
+        ? new Vector3(cc.velocity.x, 0f, cc.velocity.z).magnitude
+        : 0f;
+
+    private void Awake()
     {
         cc = GetComponent<CharacterController>();
 
@@ -26,15 +31,15 @@ public class PlayerController : MonoBehaviour
         moveAction = input.Gameplay.Move;
     }
 
-    void OnEnable() => input.Enable();
-    void OnDisable() => input.Disable();
+    private void OnEnable() => input.Enable();
+    private void OnDisable() => input.Disable();
 
-    void Update()
+    private void Update()
     {
         HandleMovement();
     }
 
-    void HandleMovement()
+    private void HandleMovement()
     {
         float speed = IsAiming ? aimMoveSpeed : moveSpeed;
 

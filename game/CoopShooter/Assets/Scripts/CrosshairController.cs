@@ -10,8 +10,8 @@ public class CrosshairController : MonoBehaviour
 
     [Header("Gap Settings")]
     [SerializeField] private float baseGap = 8f;
-    [SerializeField] private float bloomToGap = 70f;
-    [SerializeField] private float moveToGap = 28f;
+    [SerializeField] private float bloomToGap = 45f;
+    [SerializeField] private float moveToGap = 22f;
     [SerializeField] private float fireKickGap = 14f;
 
     [Header("Smoothing")]
@@ -23,15 +23,28 @@ public class CrosshairController : MonoBehaviour
     private float fireKick;
     private float currentGap;
 
-    public void SetBloom01(float value01)
+    public static CrosshairController Instance { get; private set; }
+
+    private void Awake()
     {
-        bloom01 = Mathf.Clamp01(value01);
+        Instance = this;
+        // If you want the UI to persist between scene loads, uncomment:
+        // DontDestroyOnLoad(gameObject);
     }
 
-    public void SetMove01(float value01)
+    private void OnDestroy()
     {
-        move01 = Mathf.Clamp01(value01);
+        if (Instance == this) Instance = null;
     }
+
+    private void Start()
+    {
+        currentGap = baseGap;
+        ApplyGap(currentGap);
+    }
+
+    public void SetBloom01(float value01) => bloom01 = Mathf.Clamp01(value01);
+    public void SetMove01(float value01) => move01 = Mathf.Clamp01(value01);
 
     public void AddFireKick()
     {

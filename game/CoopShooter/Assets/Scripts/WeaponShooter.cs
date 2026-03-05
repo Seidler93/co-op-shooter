@@ -24,6 +24,28 @@ public class WeaponShooter : NetworkBehaviour
     [Header("Collision")]
     [SerializeField] private bool ignoreShooterCollision = true;
 
+    [Header("Bloom / Spread")]
+    [Tooltip("Base bloom cone angle in degrees while hipfiring.")]
+    [SerializeField] private float hipBloomDeg = 0.75f;
+
+    [Tooltip("Base bloom cone angle in degrees while aiming down sights.")]
+    [SerializeField] private float adsBloomDeg = 0.15f;
+
+    [Tooltip("Additional bloom gained per shot (full-auto ramp).")]
+    [SerializeField] private float bloomGrowPerShot = 0.06f;
+
+    [Tooltip("Maximum additional bloom that can be added on top of base bloom.")]
+    [SerializeField] private float bloomMaxExtra = 1.5f;
+
+    [Tooltip("How fast bloom extra recovers back to 0 when not firing.")]
+    [SerializeField] private float bloomRecoverSpeed = 12f;
+
+    [Header("Crosshair (Owner UI)")]
+    [SerializeField] private CrosshairController crosshair;
+
+    [Tooltip("Planar speed at which movement crosshair expansion hits max (usually your moveSpeed).")]
+    [SerializeField] private float moveSpeedForMax = 6f;
+
     [Header("Recoil (client-only feel)")]
     [Tooltip("Degrees of pitch added per shot (magnitude; direction controlled by recoilPitchSign).")]
     [SerializeField] private float recoilPitchPerShot = 1.2f;
@@ -62,16 +84,6 @@ public class WeaponShooter : NetworkBehaviour
     [SerializeField] private float gunshotPitchMin = 0.95f;
     [SerializeField] private float gunshotPitchMax = 1.05f;
 
-    [Header("Bloom / Spread")]
-    [SerializeField] private float hipBloomDeg = 1.5f;
-    [SerializeField] private float adsBloomDeg = 0.35f;
-    [SerializeField] private float bloomGrowPerShot = 0.12f;   // full-auto growth
-    [SerializeField] private float bloomMaxExtra = 3.0f;
-    [SerializeField] private float bloomRecoverSpeed = 10f;
-
-    private float bloomExtra;
-    private CameraController camController;
-
     [Header("Local Tracer Travel (Owner Only)")]
     [SerializeField] private bool useLocalTracer = true;
 
@@ -98,11 +110,15 @@ public class WeaponShooter : NetworkBehaviour
     private Quaternion recoilBaseLocalRot;
     private bool fireHeld;
 
+    // Bloom state (EXTRA only; base depends on ADS)
+    private float bloomExtra;
+
+    // Refs
     private PlayerControls input;
     private InputAction fireAction;
-
     private float nextFireTime;
     private Camera ownerCam;
+    private PlayerController playerController;
 
     public override void OnNetworkSpawn()
     {
@@ -111,17 +127,14 @@ public class WeaponShooter : NetworkBehaviour
         if (!netAim)
             netAim = GetComponentInParent<NetworkWeaponAim>();
 
+        playerController = GetComponentInParent<PlayerController>();
+
         input = new PlayerControls();
         input.Enable();
 
         fireAction = input.Gameplay.Fire;
 
         ownerCam = Camera.main;
-
-        if (ownerCam != null)
-            camController = ownerCam.GetComponentInParent<CameraController>();
-        if (camController == null)
-            camController = GetComponentInParent<CameraController>();
 
         // Sensible defaults
         if (!recoilPivot && muzzle)
@@ -133,6 +146,9 @@ public class WeaponShooter : NetworkBehaviour
         // Initialize base rot so first shot doesn't pop
         if (recoilPivot)
             recoilBaseLocalRot = recoilPivot.localRotation;
+
+        // Don't hard-find UI here (may be in another scene and not loaded yet)
+        // We'll bind lazily every frame via TryBindCrosshair().
     }
 
     public override void OnNetworkDespawn()
@@ -151,12 +167,21 @@ public class WeaponShooter : NetworkBehaviour
         if (muzzle == null || projectilePrefab == null) return;
         if (fireAction == null) return;
 
+        // Bind UI if it exists (UI may live in a different scene)
+        TryBindCrosshair();
+
         // Held state used by recoil behavior
         fireHeld = fireAction.IsPressed();
+
+        // Bloom RECOVERY happens every frame (only when not firing)
+        UpdateBloomRecovery(Time.deltaTime);
 
         // Cache base rotation AFTER aim controller has run (we apply recoil additively in LateUpdate)
         if (recoilPivot != null)
             recoilBaseLocalRot = recoilPivot.localRotation;
+
+        // Always update crosshair each frame (movement + bloom recovery)
+        UpdateCrosshair();
 
         // Fire input (semi vs auto)
         bool wantsFire = fullAuto
@@ -181,34 +206,22 @@ public class WeaponShooter : NetworkBehaviour
         else
             aimPoint = camRay.origin + camRay.direction * maxAimDistance;
 
-        // Shot direction is from muzzle to aimPoint (your current behavior)
+        // Shot direction from muzzle to aimPoint (pre-bloom)
         Vector3 dir = (aimPoint - muzzle.position);
         if (dir.sqrMagnitude < 0.0001f)
             dir = muzzle.forward;
         dir.Normalize();
 
-        // ---- Bloom (spread) ----
-        bool aiming = camController != null && camController.IsAiming;
+        // ✅ Bloom growth happens ONCE PER SHOT (not per frame)
+        AddBloomOnShot();
 
+        bool aiming = playerController != null && playerController.IsAiming;
         float baseBloom = aiming ? adsBloomDeg : hipBloomDeg;
-
-        // grow while firing, recover when not firing
-        if (fireHeld)
-        {
-            float grow = aiming ? bloomGrowPerShot * 0.35f : bloomGrowPerShot;
-            bloomExtra = Mathf.Min(bloomExtra + grow, bloomMaxExtra);
-        }
-        else
-        {
-            float recover = aiming ? bloomRecoverSpeed * 1.5f : bloomRecoverSpeed;
-            bloomExtra = Mathf.MoveTowards(bloomExtra, 0f, recover * Time.deltaTime);
-        }
-
         float bloomDeg = baseBloom + bloomExtra;
 
         dir = ApplyBloomCameraRelative(dir, bloomDeg);
 
-        // LOCAL TRACER: use the actual muzzle-line hit (so strafing/cover matches shot path)
+        // LOCAL TRACER: uses actual shot direction
         if (useLocalTracer)
         {
             Vector3 tracerStart = (visualMuzzle != null) ? visualMuzzle.position : muzzle.position;
@@ -230,10 +243,14 @@ public class WeaponShooter : NetworkBehaviour
         Vector3 shotAudioPos = (visualMuzzle != null) ? visualMuzzle.position : muzzle.position;
         PlayLocalGunshot(shotAudioPos);
 
+        // Crosshair kick per SHOT
+        if (crosshair != null)
+            crosshair.AddFireKick();
+
         // Apply local recoil (visual only, local feel)
         Vector2 kick = ApplyRecoilAndReturnKick();
 
-        // Optional: replicate recoil as a visual event for other clients (does not affect their camera)
+        // Optional: replicate recoil as a visual event for other clients
         if (netAim != null)
             netAim.OwnerTriggerRecoil(kick);
 
@@ -247,21 +264,99 @@ public class WeaponShooter : NetworkBehaviour
         UpdateRecoil(Time.deltaTime);
     }
 
-    // Returns the exact kick we applied for replication (SIGNED space)
+    // -------------------------
+    // Bloom helpers
+    // -------------------------
+
+    private void AddBloomOnShot()
+    {
+        bool aiming = playerController != null && playerController.IsAiming;
+
+        // ADS ramps slower (feels tighter)
+        float grow = aiming ? bloomGrowPerShot * 0.35f : bloomGrowPerShot;
+
+        bloomExtra = Mathf.Min(bloomExtra + grow, bloomMaxExtra);
+    }
+
+    private void UpdateBloomRecovery(float dt)
+    {
+        if (fireHeld) return;
+
+        bool aiming = playerController != null && playerController.IsAiming;
+        float recover = aiming ? bloomRecoverSpeed * 1.5f : bloomRecoverSpeed;
+
+        bloomExtra = Mathf.MoveTowards(bloomExtra, 0f, recover * dt);
+    }
+
+    // -------------------------
+    // Crosshair
+    // -------------------------
+
+    private void TryBindCrosshair()
+    {
+        if (crosshair != null) return;
+        crosshair = CrosshairController.Instance;
+    }
+
+    private void UpdateCrosshair()
+    {
+        if (!IsOwner) return;
+        if (crosshair == null) return;
+
+        bool aiming = playerController != null && playerController.IsAiming;
+
+        // Bloom normalized 0..1
+        float baseBloom = aiming ? adsBloomDeg : hipBloomDeg;
+        float maxBloom = baseBloom + bloomMaxExtra;
+
+        float currentBloomDeg = baseBloom + bloomExtra;
+        float bloom01 = Mathf.InverseLerp(baseBloom, maxBloom, currentBloomDeg);
+
+        // Movement normalized 0..1
+        float move01 = 0f;
+        if (playerController != null)
+        {
+            float planar = playerController.PlanarSpeed;
+            move01 = Mathf.Clamp01(planar / Mathf.Max(0.01f, moveSpeedForMax));
+        }
+
+        crosshair.SetBloom01(bloom01);
+        crosshair.SetMove01(move01);
+    }
+
+    // -------------------------
+    // Bloom direction
+    // -------------------------
+
+    private Vector3 ApplyBloomCameraRelative(Vector3 direction, float maxAngleDeg)
+    {
+        if (maxAngleDeg <= 0f) return direction;
+
+        Vector2 r = Random.insideUnitCircle * maxAngleDeg;
+
+        Vector3 up = ownerCam ? ownerCam.transform.up : Vector3.up;
+        Vector3 right = ownerCam ? ownerCam.transform.right : Vector3.right;
+
+        Quaternion spread = Quaternion.AngleAxis(r.x, up) * Quaternion.AngleAxis(-r.y, right);
+        return (spread * direction).normalized;
+    }
+
+    // -------------------------
+    // Recoil (weapon visual)
+    // -------------------------
+
     private Vector2 ApplyRecoilAndReturnKick()
     {
         float pitchKickMag = recoilPitchPerShot;
         float yawKickMag = Random.Range(-recoilYawJitter, recoilYawJitter);
 
-        // Local accumulation stays in magnitude space
         recoilTarget.x += pitchKickMag;
         recoilTarget.y += yawKickMag;
 
         recoilTarget.x = Mathf.Clamp(recoilTarget.x, 0f, recoilMaxPitch);
         recoilTarget.y = Mathf.Clamp(recoilTarget.y, -recoilMaxYaw, recoilMaxYaw);
 
-        // Replicate in applied sign space so remotes match direction
-        float signedPitch = pitchKickMag * recoilPitchSign; // often negative means kick-up on many rigs
+        float signedPitch = pitchKickMag * recoilPitchSign;
         float signedYaw = yawKickMag * recoilYawSign;
 
         return new Vector2(signedPitch, signedYaw);
@@ -273,28 +368,26 @@ public class WeaponShooter : NetworkBehaviour
 
         float returnSpeed = fireHeld ? recoilReturnWhileFiring : recoilReturnWhenReleased;
 
-        // Return target to zero
         recoilTarget = Vector2.Lerp(recoilTarget, Vector2.zero, returnSpeed * dt);
-
-        // Smooth current toward target
         recoilCurrent = Vector2.Lerp(recoilCurrent, recoilTarget, recoilSnappiness * dt);
 
         float pitch = recoilCurrent.x * recoilPitchSign;
         float yaw = recoilCurrent.y * recoilYawSign;
 
-        // Offset around explicit local axes
         Quaternion pitchRot = Quaternion.AngleAxis(pitch, Vector3.right);
         Quaternion yawRot = Quaternion.AngleAxis(yaw, Vector3.up);
         Quaternion recoilOffset = yawRot * pitchRot;
 
-        // Apply additively on top of cached base rotation
         recoilPivot.localRotation = recoilBaseLocalRot * recoilOffset;
     }
+
+    // -------------------------
+    // Networking
+    // -------------------------
 
     [ServerRpc]
     private void FireServerRpc(Vector3 spawnPos, Quaternion spawnRot, Vector3 initialVelocity, ServerRpcParams rpcParams = default)
     {
-        // Spawn slightly forward so we don't immediately start inside a wall/enemy capsule
         spawnPos += spawnRot * Vector3.forward * 0.25f;
 
         NetworkObject proj = Instantiate(projectilePrefab, spawnPos, spawnRot);
@@ -315,7 +408,6 @@ public class WeaponShooter : NetworkBehaviour
 
         proj.Spawn(true);
 
-        // 🔊 Tell all OTHER clients to play the gunshot
         PlayGunshotClientRpc(spawnPos, new ClientRpcParams
         {
             Send = new ClientRpcSendParams
@@ -325,14 +417,13 @@ public class WeaponShooter : NetworkBehaviour
         });
     }
 
-    // Plays instantly for shooter only
+    // Audio
     private void PlayLocalGunshot(Vector3 position)
     {
         if (!gunshotClip) return;
         AudioSource.PlayClipAtPoint(gunshotClip, position, gunshotVolume);
     }
 
-    // Plays for everyone except the shooter
     [ClientRpc]
     private void PlayGunshotClientRpc(Vector3 position, ClientRpcParams rpcParams = default)
     {
@@ -343,7 +434,7 @@ public class WeaponShooter : NetworkBehaviour
 
         var audio = temp.AddComponent<AudioSource>();
         audio.clip = gunshotClip;
-        audio.spatialBlend = 1f; // 3D
+        audio.spatialBlend = 1f;
         audio.volume = gunshotVolume;
         audio.pitch = Random.Range(gunshotPitchMin, gunshotPitchMax);
         audio.rolloffMode = AudioRolloffMode.Logarithmic;
@@ -389,12 +480,10 @@ public class WeaponShooter : NetworkBehaviour
         lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         lr.receiveShadows = false;
 
-        // Material (avoid creating a new material per shot if you assign one in inspector)
         lr.material = tracerMaterial != null
             ? tracerMaterial
             : new Material(Shader.Find("Sprites/Default"));
 
-        // Start as 0-length at muzzle
         lr.SetPosition(0, start);
         lr.SetPosition(1, start);
 
@@ -412,8 +501,6 @@ public class WeaponShooter : NetworkBehaviour
 
         float speed = Mathf.Max(1f, tracerSpeed);
         float travelTime = totalDist / speed;
-
-        // Cap lifetime
         travelTime = Mathf.Min(travelTime, tracerMaxLifetime);
 
         float t = 0f;
@@ -436,19 +523,5 @@ public class WeaponShooter : NetworkBehaviour
 
         if (lr != null)
             Destroy(lr.gameObject);
-    }
-
-    private Vector3 ApplyBloomCameraRelative(Vector3 direction, float maxAngleDeg)
-    {
-        if (maxAngleDeg <= 0f) return direction;
-
-        // random point in circle -> yaw/pitch offsets
-        Vector2 r = Random.insideUnitCircle * maxAngleDeg;
-
-        Vector3 up = ownerCam ? ownerCam.transform.up : Vector3.up;
-        Vector3 right = ownerCam ? ownerCam.transform.right : Vector3.right;
-
-        Quaternion spread = Quaternion.AngleAxis(r.x, up) * Quaternion.AngleAxis(-r.y, right);
-        return (spread * direction).normalized;
     }
 }

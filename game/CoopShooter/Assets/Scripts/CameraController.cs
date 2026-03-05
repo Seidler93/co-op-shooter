@@ -11,8 +11,8 @@ public class CameraController : MonoBehaviour
     [SerializeField] private Transform gunPitchPivot;
 
     [Header("Cinemachine (v3) - injected by NetworkPlayer")]
-    [SerializeField] private CinemachineCamera cmCam;                 // scene CM_AimCam
-    [SerializeField] private CinemachineThirdPersonFollow thirdFollow; // on CM_AimCam
+    [SerializeField] private CinemachineCamera cmCam;
+    [SerializeField] private CinemachineThirdPersonFollow thirdFollow;
 
     [Header("Look Settings")]
     [SerializeField] private float sensitivity = 0.08f;
@@ -23,7 +23,6 @@ public class CameraController : MonoBehaviour
     [Header("Aim Zoom")]
     [SerializeField] private float defaultFov = 65f;
     [SerializeField] private float aimFov = 50f;
-
     [SerializeField] private float defaultDistance = 4.5f;
     [SerializeField] private float aimDistance = 3.2f;
 
@@ -49,7 +48,6 @@ public class CameraController : MonoBehaviour
         lookAction = input.Gameplay.Look;
         aimAction = input.Gameplay.Aim;
 
-        // We are inside the player prefab now
         if (!playerController)
             playerController = GetComponent<PlayerController>();
 
@@ -64,9 +62,7 @@ public class CameraController : MonoBehaviour
             Transform t = transform.Find("CamPivot");
             if (!t && playerController)
                 t = playerController.transform.Find("CamPivot");
-
-            if (t)
-                camPivot = t;
+            if (t) camPivot = t;
         }
 
         if (!gunPitchPivot && playerController)
@@ -74,21 +70,10 @@ public class CameraController : MonoBehaviour
             var t = playerController.transform.Find("GunPitchPivot");
             if (t) gunPitchPivot = t;
         }
-
-        Debug.Log($"playerController: {(playerController ? playerController.name : "NULL")}");
     }
 
-    private void OnEnable()
-    {
-        input.Enable();
-        Debug.Log("[CameraController] Enabled");
-    }
-
-    private void OnDisable()
-    {
-        input.Disable();
-        Debug.Log("[CameraController] Disabled");
-    }
+    private void OnEnable() => input.Enable();
+    private void OnDisable() => input.Disable();
 
     private void Start()
     {
@@ -101,7 +86,6 @@ public class CameraController : MonoBehaviour
             if (pitch > 180f) pitch -= 360f;
         }
 
-        // If NetworkPlayer hasn't injected the camera yet, this will be a no-op.
         ApplyDefaultZoomInstant();
     }
 
@@ -111,16 +95,10 @@ public class CameraController : MonoBehaviour
         HandleAimZoom();
     }
 
-    /// <summary>
-    /// Call this from NetworkPlayer (owner only) after it finds/claims the scene CinemachineCamera.
-    /// </summary>
     public void SetCinemachine(CinemachineCamera cam)
     {
         cmCam = cam;
         thirdFollow = cmCam ? cmCam.GetComponent<CinemachineThirdPersonFollow>() : null;
-
-        Debug.Log($"[CameraController] SetCinemachine: cmCam={(cmCam ? cmCam.name : "NULL")}, thirdFollow={(thirdFollow ? "OK" : "NULL")}");
-
         ApplyDefaultZoomInstant();
     }
 
@@ -161,7 +139,6 @@ public class CameraController : MonoBehaviour
 
         camPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
 
-        // Pitch on gun/upper body pivot (same pitch)
         if (gunPitchPivot)
             gunPitchPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
     }
@@ -171,6 +148,10 @@ public class CameraController : MonoBehaviour
         if (!cmCam || !thirdFollow) return;
 
         IsAiming = aimAction != null && aimAction.IsPressed();
+
+        // Keep movement + bloom in sync with ADS
+        if (playerController)
+            playerController.IsAiming = IsAiming;
 
         float targetFov = IsAiming ? aimFov : defaultFov;
         float targetDist = IsAiming ? aimDistance : defaultDistance;
