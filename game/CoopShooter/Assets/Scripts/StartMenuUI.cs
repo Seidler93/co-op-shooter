@@ -3,6 +3,7 @@ using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 public class StartMenuUI : MonoBehaviour
 {
@@ -15,47 +16,78 @@ public class StartMenuUI : MonoBehaviour
     [Header("Scenes")]
     [SerializeField] private string gameplaySceneName = "Gameplay";
 
-    private UnityTransport Transport => NetworkManager.Singleton.GetComponent<UnityTransport>();
+    private UnityTransport Transport
+    {
+        get
+        {
+            if (NetworkManager.Singleton == null) return null;
+            return NetworkManager.Singleton.GetComponent<UnityTransport>();
+        }
+    }
 
     public void Host()
     {
-        if (NetworkManager.Singleton.IsListening) return;
-
-        ApplyConnectionData();
-        SetButtons(false);
-
-        bool ok = NetworkManager.Singleton.StartHost();
-        Debug.Log("StartHost() returned: " + ok);
-
-        if (!ok)
+        if (NetworkManager.Singleton == null)
         {
-            SetButtons(true);
+            Debug.LogError("[StartMenuUI] No NetworkManager.Singleton found.");
             return;
         }
 
-        NetworkManager.Singleton.SceneManager.LoadScene(gameplaySceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
+        if (Transport == null)
+        {
+            Debug.LogError("[StartMenuUI] No UnityTransport found on NetworkManager.");
+            return;
+        }
+
+        if (NetworkManager.Singleton.IsListening) return;
+
+        ApplyConnectionData();
+        SetButtonsInteractable(false);
+
+        bool ok = NetworkManager.Singleton.StartHost();
+        Debug.Log("[StartMenuUI] StartHost() returned: " + ok);
+
+        if (!ok)
+        {
+            SetButtonsInteractable(true);
+            return;
+        }
+
+        NetworkManager.Singleton.SceneManager.LoadScene(gameplaySceneName, LoadSceneMode.Single);
     }
 
     public void Join()
     {
+        if (NetworkManager.Singleton == null)
+        {
+            Debug.LogError("[StartMenuUI] No NetworkManager.Singleton found.");
+            return;
+        }
+
+        if (Transport == null)
+        {
+            Debug.LogError("[StartMenuUI] No UnityTransport found on NetworkManager.");
+            return;
+        }
+
         if (NetworkManager.Singleton.IsListening) return;
 
         ApplyConnectionData();
-        SetButtons(false);
+        SetButtonsInteractable(false);
 
         bool ok = NetworkManager.Singleton.StartClient();
-        Debug.Log("StartClient() returned: " + ok);
+        Debug.Log("[StartMenuUI] StartClient() returned: " + ok);
 
         if (!ok)
         {
-            SetButtons(true);
+            SetButtonsInteractable(true);
         }
     }
 
-    private void SetButtons(bool enabled)
+    private void SetButtonsInteractable(bool interactable)
     {
-        if (hostButton) hostButton.interactable = enabled;
-        if (joinButton) joinButton.interactable = enabled;
+        if (hostButton) hostButton.interactable = interactable;
+        if (joinButton) joinButton.interactable = interactable;
     }
 
     private void ApplyConnectionData()
@@ -69,6 +101,6 @@ public class StartMenuUI : MonoBehaviour
         Transport.ConnectionData.Address = addr;
         Transport.ConnectionData.Port = port;
 
-        Debug.Log($"ConnectionData set: {addr}:{port}");
+        Debug.Log($"[StartMenuUI] ConnectionData set: {addr}:{port}");
     }
 }

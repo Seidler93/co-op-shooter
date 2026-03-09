@@ -238,7 +238,7 @@ MonoBehaviour:
   hitMask:
     serializedVersion: 2
     m_Bits: 257
-  worldImpactPrefab: {fileID: 100002, guid: 9798b0ab65af9f048ba5be0e8f0d3bf9, type: 3}
-  enemyImpactPrefab: {fileID: 100002, guid: 9798b0ab65af9f048ba5be0e8f0d3bf9, type: 3}
+  worldImpactPrefab: {fileID: 0}
+  enemyImpactPrefab: {fileID: 0}
   enemyFxLifetime: 1.5
-  worldFxLifetime: 3
+  worldFxLifetime: 1.5
