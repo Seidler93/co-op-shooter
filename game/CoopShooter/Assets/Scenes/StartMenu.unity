@@ -356,8 +356,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::StartMenuUI
   addressField: {fileID: 0}
   portField: {fileID: 0}
-  hostButton: {fileID: 0}
-  joinButton: {fileID: 0}
+  hostButton: {fileID: 1831944960}
+  joinButton: {fileID: 680001185}
   gameplaySceneName: Gameplay
 --- !u!4 &556652316
 Transform:
@@ -524,7 +524,7 @@ GameObject:
   - component: {fileID: 680001186}
   - component: {fileID: 680001185}
   m_Layer: 5
-  m_Name: Button
+  m_Name: JoinButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1054,7 +1054,7 @@ GameObject:
   - component: {fileID: 1831944961}
   - component: {fileID: 1831944960}
   m_Layer: 5
-  m_Name: Button
+  m_Name: HostButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1268,8 +1268,8 @@ RectTransform:
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1831944959}
   - {fileID: 680001184}
+  - {fileID: 1831944959}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}

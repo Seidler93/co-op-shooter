@@ -107,6 +107,7 @@ MonoBehaviour:
   ignoreShooterCollision: 1
   netAim: {fileID: 5136247905005152215}
   localWorldImpactPrefab: {fileID: 100002, guid: 99c73c92ac40473459640b165473206f, type: 3}
+  localEnemyImpactPrefab: {fileID: 100002, guid: 3b1513bcb86426b4795879be6a128ed7, type: 3}
   localWorldImpactLifetime: 2
 --- !u!114 &7455866847024551985
 MonoBehaviour:

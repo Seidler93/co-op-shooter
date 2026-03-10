@@ -25,6 +25,11 @@ public class StartMenuUI : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        SetButtonsInteractable(true);
+    }
+
     public void Host()
     {
         if (NetworkManager.Singleton == null)
@@ -39,7 +44,17 @@ public class StartMenuUI : MonoBehaviour
             return;
         }
 
-        if (NetworkManager.Singleton.IsListening) return;
+        if (NetworkManager.Singleton.ShutdownInProgress)
+        {
+            Debug.LogWarning("[StartMenuUI] NetworkManager is still shutting down.");
+            return;
+        }
+
+        if (NetworkManager.Singleton.IsListening || NetworkManager.Singleton.IsClient || NetworkManager.Singleton.IsServer)
+        {
+            Debug.LogWarning("[StartMenuUI] NetworkManager already running.");
+            return;
+        }
 
         ApplyConnectionData();
         SetButtonsInteractable(false);
@@ -49,6 +64,13 @@ public class StartMenuUI : MonoBehaviour
 
         if (!ok)
         {
+            SetButtonsInteractable(true);
+            return;
+        }
+
+        if (NetworkManager.Singleton.SceneManager == null)
+        {
+            Debug.LogError("[StartMenuUI] NGO SceneManager is null.");
             SetButtonsInteractable(true);
             return;
         }
@@ -70,7 +92,17 @@ public class StartMenuUI : MonoBehaviour
             return;
         }
 
-        if (NetworkManager.Singleton.IsListening) return;
+        if (NetworkManager.Singleton.ShutdownInProgress)
+        {
+            Debug.LogWarning("[StartMenuUI] NetworkManager is still shutting down.");
+            return;
+        }
+
+        if (NetworkManager.Singleton.IsListening || NetworkManager.Singleton.IsClient || NetworkManager.Singleton.IsServer)
+        {
+            Debug.LogWarning("[StartMenuUI] NetworkManager already running.");
+            return;
+        }
 
         ApplyConnectionData();
         SetButtonsInteractable(false);

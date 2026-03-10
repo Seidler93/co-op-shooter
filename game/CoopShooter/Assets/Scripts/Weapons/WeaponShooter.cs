@@ -39,6 +39,7 @@ public class WeaponShooter : NetworkBehaviour
     [Header("Local Predicted World Impact (Owner Only)")]
     [Tooltip("Use a VISUAL-ONLY prefab here (no audio), so world impacts don't sound doubled.")]
     [SerializeField] private GameObject localWorldImpactPrefab;
+    [SerializeField] private GameObject localEnemyImpactPrefab;
 
     [SerializeField] private float localWorldImpactLifetime = 2f;
 
@@ -176,10 +177,11 @@ public class WeaponShooter : NetworkBehaviour
         if (hasPredictedHit)
         {
             bool hitEnemy = predictedHit.collider.GetComponentInParent<EnemyAI>() != null;
-            if (!hitEnemy)
-            {
-                SpawnLocalPredictedWorldImpact(predictedHit.point, predictedHit.normal);
-            }
+
+            if (hitEnemy)
+                SpawnLocalPredictedImpact(predictedHit.point, predictedHit.normal, localEnemyImpactPrefab);
+            else
+                SpawnLocalPredictedImpact(predictedHit.point, predictedHit.normal, localWorldImpactPrefab);
         }
 
         Vector3 shotAudioPos = visualMuzzle != null ? visualMuzzle.position : muzzle.position;
@@ -199,15 +201,15 @@ public class WeaponShooter : NetworkBehaviour
         FireServerRpc(muzzle.position, rot, initialVel);
     }
 
-    private void SpawnLocalPredictedWorldImpact(Vector3 position, Vector3 normal)
+    private void SpawnLocalPredictedImpact(Vector3 position, Vector3 normal, GameObject impactPrefab)
     {
-        if (!localWorldImpactPrefab) return;
+        if (impactPrefab == null) return;
 
         Quaternion rot = normal.sqrMagnitude > 0.001f
             ? Quaternion.LookRotation(normal)
             : Quaternion.identity;
 
-        GameObject fx = Instantiate(localWorldImpactPrefab, position, rot);
+        GameObject fx = Instantiate(impactPrefab, position, rot);
         Destroy(fx, localWorldImpactLifetime);
     }
 

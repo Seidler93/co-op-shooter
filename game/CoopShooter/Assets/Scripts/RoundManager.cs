@@ -9,7 +9,7 @@ public class RoundManager : NetworkBehaviour
     public static RoundManager Instance { get; private set; }
 
     [Header("Scenes")]
-    [SerializeField] private string gameplaySceneName = "Game";
+    [SerializeField] private string gameplaySceneName = "Gameplay";
     [SerializeField] private string startMenuSceneName = "StartMenu";
 
     [Header("Player Spawning")]
@@ -57,6 +57,12 @@ public class RoundManager : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         Instance = this;
 
         if (!IsServer) return;
@@ -151,13 +157,25 @@ public class RoundManager : NetworkBehaviour
     {
         if (!IsServer) return;
 
-        if (NetworkManager != null &&
-            NetworkManager.NetworkConfig != null &&
-            NetworkManager.NetworkConfig.EnableSceneManagement &&
-            NetworkManager.SceneManager != null)
+        ReturnToMenuClientRpc();
+    }
+
+    [ClientRpc]
+    private void ReturnToMenuClientRpc()
+    {
+        StartCoroutine(ReturnToMenuRoutine());
+    }
+
+    private IEnumerator ReturnToMenuRoutine()
+    {
+        yield return null;
+
+        if (NetworkManager.Singleton != null)
         {
-            NetworkManager.SceneManager.LoadScene(startMenuSceneName, LoadSceneMode.Single);
+            NetworkManager.Singleton.Shutdown();
         }
+
+        SceneManager.LoadScene(startMenuSceneName, LoadSceneMode.Single);
     }
 
     private void OnSceneLoadCompletedServer(
