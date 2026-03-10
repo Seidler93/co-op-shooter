@@ -15,6 +15,7 @@ public class RoundManager : NetworkBehaviour
     [Header("Player Spawning")]
     [SerializeField] private NetworkObject playerPrefab;
     [SerializeField] private Transform[] playerSpawnPoints;
+    [SerializeField] private float playerSpawnHeightOffset = 1.0f;
 
     [Header("Enemy Spawning")]
     [SerializeField] private NetworkObject enemyPrefab;
@@ -52,6 +53,7 @@ public class RoundManager : NetworkBehaviour
 
     private readonly HashSet<ulong> aliveEnemyIds = new HashSet<ulong>();
     private bool ending;
+    private Coroutine roundFlowRoutine;
 
     public override void OnNetworkSpawn()
     {
@@ -76,18 +78,20 @@ public class RoundManager : NetworkBehaviour
 
         if (NetworkManager != null && NetworkManager.SceneManager != null)
             NetworkManager.SceneManager.OnLoadEventCompleted -= OnSceneLoadCompletedServer;
+
+        if (roundFlowRoutine != null)
+        {
+            StopCoroutine(roundFlowRoutine);
+            roundFlowRoutine = null;
+        }
     }
 
-    private IEnumerator ServerStartRoutine()
+    private void StartRoundFlow(IEnumerator routine)
     {
-        SetStateServer(MatchState.Waiting);
-        RoundNumber.Value = 0;
+        if (roundFlowRoutine != null)
+            StopCoroutine(roundFlowRoutine);
 
-        yield return new WaitForSeconds(initialStartDelay);
-
-        if (ending) yield break;
-
-        StartNextRoundServer();
+        roundFlowRoutine = StartCoroutine(routine);
     }
 
     private void SetStateServer(MatchState s)
@@ -156,19 +160,30 @@ public class RoundManager : NetworkBehaviour
         }
     }
 
-    private void OnSceneLoadCompletedServer(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
+    private void OnSceneLoadCompletedServer(
+        string sceneName,
+        LoadSceneMode loadSceneMode,
+        List<ulong> clientsCompleted,
+        List<ulong> clientsTimedOut)
     {
         if (!IsServer) return;
 
-        if (sceneName != gameplaySceneName)
-            return;
-
-        Debug.Log("[RoundManager] Gameplay scene reload complete. Respawning players.");
-
-        StartCoroutine(RespawnPlayersAndRestartRoutine());
+        if (sceneName == gameplaySceneName)
+        {
+            Debug.Log("[RoundManager] Gameplay scene load complete. Spawning players and starting round flow.");
+            StartRoundFlow(RespawnPlayersAndStartRoutine());
+        }
+        else if (sceneName == startMenuSceneName)
+        {
+            Debug.Log("[RoundManager] Start menu loaded.");
+            ending = false;
+            aliveEnemyIds.Clear();
+            SetStateServer(MatchState.Waiting);
+            RoundNumber.Value = 0;
+        }
     }
 
-    private IEnumerator RespawnPlayersAndRestartRoutine()
+    private IEnumerator RespawnPlayersAndStartRoutine()
     {
         yield return null;
         yield return null;
@@ -186,11 +201,13 @@ public class RoundManager : NetworkBehaviour
         if (ending) yield break;
 
         StartNextRoundServer();
+        roundFlowRoutine = null;
     }
 
     private void RespawnAllPlayersServer()
     {
         if (!IsServer) return;
+
         if (playerPrefab == null)
         {
             Debug.LogError("[RoundManager] playerPrefab not assigned.");
@@ -207,16 +224,23 @@ public class RoundManager : NetworkBehaviour
         {
             var client = NetworkManager.ConnectedClients[clientId];
 
-            if (client.PlayerObject != null)
-            {
-                if (client.PlayerObject.IsSpawned)
-                    client.PlayerObject.Despawn(true);
-            }
+            if (client.PlayerObject != null && client.PlayerObject.IsSpawned)
+                client.PlayerObject.Despawn(true);
 
             Transform sp = playerSpawnPoints[(int)(clientId % (ulong)playerSpawnPoints.Length)];
-            NetworkObject player = Instantiate(playerPrefab, sp.position, sp.rotation);
+            Vector3 spawnPos = sp.position + Vector3.up * playerSpawnHeightOffset;
 
+            Debug.Log($"[RoundManager] Spawning player for client {clientId} at {spawnPos}");
+
+            NetworkObject player = Instantiate(playerPrefab, spawnPos, sp.rotation);
             player.SpawnAsPlayerObject(clientId, true);
+
+            CharacterController cc = player.GetComponent<CharacterController>();
+            if (cc != null)
+            {
+                cc.enabled = false;
+                cc.enabled = true;
+            }
         }
     }
 
@@ -226,12 +250,24 @@ public class RoundManager : NetworkBehaviour
         if (ending) return;
 
         SetStateServer(MatchState.Playing);
+
         RoundNumber.Value = Mathf.Max(1, RoundNumber.Value + 1);
+
+        ShowRoundStartClientRpc(RoundNumber.Value);
 
         int enemyCount = baseEnemies + (RoundNumber.Value - 1) * enemiesPerRound;
         Debug.Log($"[RoundManager] Round {RoundNumber.Value} starting. Spawning {enemyCount} enemies.");
 
         SpawnEnemiesServer(enemyCount);
+    }
+
+    [ClientRpc]
+    private void ShowRoundStartClientRpc(int roundNumber)
+    {
+        if (RoundUI.Instance == null) return;
+
+        RoundUI.Instance.SetRound(roundNumber);
+        RoundUI.Instance.ShowRoundStart(roundNumber);
     }
 
     private void SpawnEnemiesServer(int count)

@@ -34,6 +34,8 @@ public class NetworkPlayer : NetworkBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
+    Debug.Log($"[Player Spawn] {name} | IsOwner={IsOwner} | IsServer={IsServer} | OwnerClientId={OwnerClientId}");
+
         StartCoroutine(ClaimSceneCameraWhenReady());
     }
 
