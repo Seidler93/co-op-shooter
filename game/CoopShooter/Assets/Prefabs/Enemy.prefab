@@ -261,6 +261,8 @@ MonoBehaviour:
   maxHP: 100
   despawnOnDeath: 1
   disableOnDeath: 0
+  awardPointsOnDeath: 1
+  killPoints: 100
   logHealthChanges: 1
   CurrentHP:
     m_InternalValue: 0

@@ -144,6 +144,6 @@ public class PlayerHealth : NetworkBehaviour
     public void ApplyDamage(int amount)
     {
         if (health == null) return;
-        health.ApplyDamage(amount);
+        health.ApplyDamage(amount, OwnerClientId);
     }
 }

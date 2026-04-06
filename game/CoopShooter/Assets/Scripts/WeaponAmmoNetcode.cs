@@ -149,4 +149,16 @@ public class WeaponAmmoNetcode : NetworkBehaviour
 
         IsReloading.Value = false;
     }
+
+    public bool Server_AddReserveAmmo(int amount)
+    {
+        if (!IsServer)
+            return false;
+
+        if (ReserveAmmo.Value >= reserveMax)
+            return false;
+
+        ReserveAmmo.Value = Mathf.Min(ReserveAmmo.Value + amount, reserveMax);
+        return true;
+    }
 }

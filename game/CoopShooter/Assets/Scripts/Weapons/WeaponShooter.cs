@@ -33,6 +33,15 @@ public class WeaponShooter : NetworkBehaviour
     [Header("Collision")]
     [SerializeField] private bool ignoreShooterCollision = true;
 
+    [Header("Shop Upgrades")]
+    [SerializeField] private int baseDamage = 20;
+    [SerializeField] private int damagePerUpgrade = 5;
+    [SerializeField] private float fireRateMultiplierPerUpgrade = 0.9f;
+
+    private int damageUpgradeLevel = 0;
+    private int fireRateUpgradeLevel = 0;
+    private float defaultFireCooldown;
+
     [Header("Networking (optional)")]
     [SerializeField] private NetworkWeaponAim netAim;
 
@@ -47,6 +56,11 @@ public class WeaponShooter : NetworkBehaviour
     private Camera ownerCam;
     private bool fireHeld;
     private bool firePressedThisFrame;
+
+    private void Awake()
+    {
+        defaultFireCooldown = fireCooldown;
+    }
 
     public override void OnNetworkSpawn()
     {
@@ -248,7 +262,8 @@ public class WeaponShooter : NetworkBehaviour
                 ? rpcParams.Receive.SenderClientId
                 : (ulong?)null;
 
-            projectile.Initialize(dir, projectileSpeed, shooterId);
+            int shotDamage = GetCurrentDamage();
+            projectile.Initialize(dir, projectileSpeed, shooterId, shotDamage);
         }
 
         proj.Spawn(true);
@@ -280,5 +295,27 @@ public class WeaponShooter : NetworkBehaviour
         }
 
         return result.ToArray();
+    }
+
+    public void Server_SetDamageUpgradeLevel(int level)
+    {
+        if (!IsServer)
+            return;
+
+        damageUpgradeLevel = level;
+    }
+
+    public void Server_SetFireRateUpgradeLevel(int level)
+    {
+        if (!IsServer)
+            return;
+
+        fireRateUpgradeLevel = level;
+        fireCooldown = defaultFireCooldown * Mathf.Pow(fireRateMultiplierPerUpgrade, fireRateUpgradeLevel);
+    }
+
+    private int GetCurrentDamage()
+    {
+        return baseDamage + (damageUpgradeLevel * damagePerUpgrade);
     }
 }

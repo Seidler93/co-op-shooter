@@ -15,6 +15,13 @@ public class NetworkPlayer : NetworkBehaviour
     [Header("Optional")]
     [SerializeField] private CameraController cameraController;
 
+    [Header("Score")]
+    public NetworkVariable<int> Score = new NetworkVariable<int>(
+        0,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
     private void Awake()
     {
         if (!cameraController)
@@ -73,5 +80,33 @@ public class NetworkPlayer : NetworkBehaviour
         {
             hud.Bind(ammo);
         }
+    }
+
+    public void AddPoints(int amount)
+    {
+        if (!IsServer) return;
+
+        Score.Value += amount;
+        Debug.Log($"[SERVER] {name} gained {amount} points. New score = {Score.Value}");
+    }
+
+    public bool TrySpendScore(int amount)
+    {
+        if (!IsServer)
+            return false;
+
+        if (Score.Value < amount)
+            return false;
+
+        Score.Value -= amount;
+        return true;
+    }
+
+    public void RefundScore(int amount)
+    {
+        if (!IsServer)
+            return;
+
+        Score.Value += amount;
     }
 }

@@ -10,6 +10,10 @@ public class Health : NetworkBehaviour
     [SerializeField] private bool despawnOnDeath = false;
     [SerializeField] private bool disableOnDeath = false;
 
+    [Header("Scoring")]
+    [SerializeField] private bool awardPointsOnDeath = true;
+    [SerializeField] private int killPoints = 100;
+
     [Header("Debug")]
     [SerializeField] private bool logHealthChanges = true;
 
@@ -26,12 +30,18 @@ public class Health : NetworkBehaviour
     public event Action<Health> Died;
     public event Action<int, int> HealthChanged;
 
+    private ulong lastAttackerClientId;
+    private bool hasLastAttacker;
+
     public override void OnNetworkSpawn()
     {
         if (IsServer)
         {
             if (CurrentHP.Value <= 0)
                 CurrentHP.Value = maxHP;
+
+            hasLastAttacker = false;
+            lastAttackerClientId = 0;
         }
 
         CurrentHP.OnValueChanged += OnHpChanged;
@@ -71,17 +81,20 @@ public class Health : NetworkBehaviour
         }
     }
 
-    public void ApplyDamage(int amount)
+    public void ApplyDamage(int amount, ulong attackerClientId)
     {
         if (!IsServer) return;
         if (amount <= 0) return;
         if (!IsAlive) return;
 
+        hasLastAttacker = true;
+        lastAttackerClientId = attackerClientId;
+
         int next = Mathf.Max(0, CurrentHP.Value - amount);
 
         if (logHealthChanges)
         {
-            Debug.Log($"[SERVER] Applying {amount} damage to {name}");
+            Debug.Log($"[SERVER] Applying {amount} damage to {name} from client {attackerClientId}");
         }
 
         CurrentHP.Value = next;
@@ -94,6 +107,22 @@ public class Health : NetworkBehaviour
 
     private void HandleDeathServer()
     {
+        if (awardPointsOnDeath && hasLastAttacker && NetworkManager.Singleton != null)
+        {
+            if (NetworkManager.Singleton.ConnectedClients.TryGetValue(lastAttackerClientId, out var client))
+            {
+                if (client.PlayerObject != null)
+                {
+                    NetworkPlayer player = client.PlayerObject.GetComponent<NetworkPlayer>();
+
+                    if (player != null)
+                    {
+                        player.AddPoints(killPoints);
+                    }
+                }
+            }
+        }
+
         if (despawnOnDeath && NetworkObject != null && NetworkObject.IsSpawned)
         {
             NetworkObject.Despawn(true);
@@ -115,6 +144,8 @@ public class Health : NetworkBehaviour
         if (!IsServer) return;
 
         CurrentHP.Value = maxHP;
+        hasLastAttacker = false;
+        lastAttackerClientId = 0;
 
         if (disableOnDeath)
         {
@@ -126,5 +157,18 @@ public class Health : NetworkBehaviour
     private void EnableObjectClientRpc()
     {
         gameObject.SetActive(true);
+    }
+
+    public bool Server_Heal(int amount)
+    {
+        if (!IsServer)
+            return false;
+
+        if (CurrentHP.Value >= MaxHP)
+            return false;
+
+        CurrentHP.Value = Mathf.Min(CurrentHP.Value + amount, MaxHP);
+        HealthChanged?.Invoke(CurrentHP.Value, MaxHP);
+        return true;
     }
 }
