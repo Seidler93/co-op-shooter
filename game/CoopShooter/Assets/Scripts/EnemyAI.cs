@@ -161,7 +161,7 @@ public class EnemyAI : NetworkBehaviour
 
         if (targetHealth != null && targetHealth.IsAlive)
         {
-            targetHealth.ApplyDamage(attackDamage);
+            targetHealth.ApplyDamage(attackDamage, OwnerClientId);
         }
     }
 }

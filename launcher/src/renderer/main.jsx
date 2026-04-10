@@ -1,14 +1,10 @@
+import React from "react";
 import { createRoot } from "react-dom/client";
-import LaunchButton from "./components/LaunchButton";
+import App from "./App";
+import "./styles.css";
 
-function App() {
-  return (
-    <div style={{ padding: 24, fontFamily: "system-ui" }}>
-      <h1>Co-op Shooter Launcher</h1>
-      <button onClick={() => window.location.reload()}>Reload</button>
-      <LaunchButton/>
-    </div>
-  );
-}
-
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);

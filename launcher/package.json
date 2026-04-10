@@ -1,8 +1,14 @@
 {
   "name": "coop-shooter-launcher",
-  "version": "0.1.0",
+  "version": "0.1.2",
+  "description": "Beta launcher for Co-op Shooter.",
   "main": "src/main/main.js",
   "private": true,
+  "author": "AJ Seidler",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Seidler93/co-op-shooter.git"
+  },
   "scripts": {
     "dev": "concurrently -k -n VITE,ELECTRON -c auto \"npm:dev:renderer\" \"npm:dev:electron\"",
     "dev:renderer": "vite",
@@ -14,7 +20,7 @@
     "dist": "npm run build:renderer && electron-builder"
   },
   "dependencies": {
-    "electron": "^31.0.0",
+    "@supabase/supabase-js": "^2.49.4",
     "electron-updater": "^6.2.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
@@ -23,6 +29,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
+    "electron": "^31.0.0",
     "electron-builder": "^24.13.3",
     "nodemon": "^3.1.14",
     "vite": "^5.4.8",
@@ -34,13 +41,9 @@
     "directories": {
       "output": "release"
     },
-    "publish": [
-      {
-        "provider": "github"
-      }
-    ],
     "files": [
-      "dist/**",
+      ".env",
+      "dist-renderer/**",
       "src/main/**",
       "package.json"
     ],
@@ -54,7 +57,9 @@
       }
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false
     }
   }
 }

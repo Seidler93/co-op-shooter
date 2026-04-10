@@ -4,9 +4,8 @@ using UnityEngine;
 public class WeaponAimController : NetworkBehaviour
 {
     [Header("Refs")]
-    [SerializeField] private Camera mainCam;              // owner only
-    [SerializeField] private Transform playerRoot;        // yaw basis (player root)
-    [SerializeField] private Transform weaponPivot;       // your handle pivot (single pivot)
+    [SerializeField] private Camera mainCam;
+    [SerializeField] private Transform weaponPivot;
     [SerializeField] private Transform weaponMuzzle;
 
     [Header("Aim")]
@@ -23,7 +22,6 @@ public class WeaponAimController : NetworkBehaviour
     [Header("Networking")]
     [SerializeField] private NetworkWeaponAim netAim;
 
-    // Remote recoil spring (visual only)
     [Header("Remote Recoil Visuals")]
     [SerializeField] private float recoilReturnSpeed = 18f;
     [SerializeField] private float recoilSnappiness = 28f;
@@ -36,58 +34,49 @@ public class WeaponAimController : NetworkBehaviour
 
     private void Awake()
     {
-        if (!netAim) netAim = GetComponentInParent<NetworkWeaponAim>();
-
-        if (!playerRoot)
-            playerRoot = transform.root; // fallback; best to assign to player root explicitly
-
-        if (!mainCam && IsOwner)
-            mainCam = Camera.main;
+        if (!netAim)
+            netAim = GetComponentInParent<NetworkWeaponAim>();
     }
 
     public override void OnNetworkSpawn()
     {
-        if (!netAim) netAim = GetComponentInParent<NetworkWeaponAim>();
-        if (netAim != null) lastRecoilSeqSeen = netAim.RecoilSeq.Value;
+        if (!netAim)
+            netAim = GetComponentInParent<NetworkWeaponAim>();
 
-        // Owner uses camera; remote does not need Camera.main
-        if (IsOwner && !mainCam) mainCam = Camera.main;
+        if (netAim != null)
+            lastRecoilSeqSeen = netAim.RecoilSeq.Value;
+
+        if (IsOwner && !mainCam)
+            mainCam = Camera.main;
     }
 
     private void LateUpdate()
     {
-        if (!weaponPivot || !playerRoot || !netAim) return;
+        if (!weaponPivot || !netAim) return;
 
-        // Owner: compute aim angles from camera center and replicate
+        Vector2 angles;
+
         if (IsOwner)
         {
-            if (!mainCam) mainCam = Camera.main;
-            if (!mainCam) return;
+            if (!mainCam)
+                mainCam = Camera.main;
+            if (!mainCam)
+                return;
 
             Quaternion desiredWorld = ComputeDesiredWorldRotationFromCameraRay();
-            Vector2 angles = WorldToLocalAimAngles(desiredWorld);
+            angles = WorldToLocalAimAngles(desiredWorld);
 
-            // Apply locally
-            Vector2 total = angles + recoilCurrent; // recoilCurrent is signed now
-            ApplyLocalAimAngles(total);
-
-            // Replicate to others
             netAim.OwnerSetAimAngles(angles);
         }
-        // Remote: apply replicated aim angles (and replicated recoil events)
         else
         {
             ConsumeRemoteRecoilEvents();
-
-            Vector2 angles = netAim.WeaponAimAngles.Value;
-            ApplyLocalAimAngles(angles);
-
+            angles = netAim.WeaponAimAngles.Value;
             UpdateRemoteRecoil(Time.deltaTime);
-
-            // Add recoil on top (pitch up + yaw jitter)
-            Vector2 total = angles + recoilCurrent;
-            ApplyLocalAimAngles(total);
         }
+
+        Vector2 total = angles + recoilCurrent;
+        ApplyLocalAimAngles(total);
     }
 
     private Quaternion ComputeDesiredWorldRotationFromCameraRay()
@@ -99,7 +88,7 @@ public class WeaponAimController : NetworkBehaviour
             aimPoint = hit.point;
 
         Vector3 origin = weaponMuzzle ? weaponMuzzle.position : weaponPivot.position;
-        Vector3 dir = (aimPoint - origin);
+        Vector3 dir = aimPoint - origin;
         if (dir.sqrMagnitude < 0.0001f)
             dir = weaponPivot.forward;
 
@@ -111,15 +100,20 @@ public class WeaponAimController : NetworkBehaviour
             desired = Quaternion.Euler(NormalizeAngle(e.x), NormalizeAngle(e.y), 0f);
         }
 
-        // Smooth in world space for owner feel
+        if (aimSharpness <= 0f)
+            return desired;
+
         float t = 1f - Mathf.Exp(-aimSharpness * Time.deltaTime);
         return Quaternion.Slerp(weaponPivot.rotation, desired, t);
     }
 
-    // Convert world rotation to (pitch,yaw) relative to playerRoot
     private Vector2 WorldToLocalAimAngles(Quaternion desiredWorld)
     {
-        Quaternion local = Quaternion.Inverse(playerRoot.rotation) * desiredWorld;
+        Transform parent = weaponPivot.parent;
+        if (parent == null)
+            return Vector2.zero;
+
+        Quaternion local = Quaternion.Inverse(parent.rotation) * desiredWorld;
         Vector3 e = local.eulerAngles;
 
         float pitch = NormalizeAngle(e.x);
@@ -128,11 +122,9 @@ public class WeaponAimController : NetworkBehaviour
         return new Vector2(pitch, yaw);
     }
 
-    // Apply angles relative to playerRoot (no roll)
     private void ApplyLocalAimAngles(Vector2 angles)
     {
-        Quaternion localRot = Quaternion.Euler(angles.x, angles.y, 0f);
-        weaponPivot.rotation = playerRoot.rotation * localRot;
+        weaponPivot.localRotation = Quaternion.Euler(angles.x, angles.y, 0f);
     }
 
     private void ConsumeRemoteRecoilEvents()
@@ -153,9 +145,7 @@ public class WeaponAimController : NetworkBehaviour
 
     private void UpdateRemoteRecoil(float dt)
     {
-        // Return target to 0
         recoilTarget = Vector2.Lerp(recoilTarget, Vector2.zero, recoilReturnSpeed * dt);
-        // Smooth current toward target
         recoilCurrent = Vector2.Lerp(recoilCurrent, recoilTarget, recoilSnappiness * dt);
     }
 

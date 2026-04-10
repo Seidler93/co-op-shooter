@@ -5,10 +5,6 @@ using Unity.Cinemachine;
 
 public class NetworkPlayer : NetworkBehaviour
 {
-    [Header("Player refs")]
-    [SerializeField] private PlayerController playerController;
-    [SerializeField] private CameraController cameraController;
-
     [Header("Camera targets (ON THIS PLAYER)")]
     [SerializeField] private Transform camPivot;
     [SerializeField] private Transform shoulderTarget;
@@ -16,13 +12,21 @@ public class NetworkPlayer : NetworkBehaviour
     [Header("Scene camera (ONE in scene)")]
     [SerializeField] private CinemachineCamera sceneAimCam;
 
+    [Header("Optional")]
+    [SerializeField] private CameraController cameraController;
+
+    [Header("Score")]
+    public NetworkVariable<int> Score = new NetworkVariable<int>(
+        0,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
     private void Awake()
     {
-        // Works even if your scripts live on children
-        if (!playerController) playerController = GetComponentInChildren<PlayerController>(true);
-        if (!cameraController) cameraController = GetComponentInChildren<CameraController>(true);
+        if (!cameraController)
+            cameraController = GetComponentInChildren<CameraController>(true);
 
-        // If you named it CamPivot, this grabs it automatically
         if (!camPivot)
         {
             var t = transform.Find("CamPivot");
@@ -32,32 +36,28 @@ public class NetworkPlayer : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        ApplyOwnership(IsOwner);
-    }
-
-    private void ApplyOwnership(bool isOwner)
-    {
-        if (playerController) playerController.enabled = isOwner;
-        if (cameraController) cameraController.enabled = isOwner;
-
-        if (!isOwner) return;
-
+        if (!IsOwner) return;
+    
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+
+    Debug.Log($"[Player Spawn] {name} | IsOwner={IsOwner} | IsServer={IsServer} | OwnerClientId={OwnerClientId}");
 
         StartCoroutine(ClaimSceneCameraWhenReady());
     }
 
     private IEnumerator ClaimSceneCameraWhenReady()
     {
-        // Wait a couple frames so: scene loaded + Cinemachine exists + player fully spawned
         yield return null;
         yield return null;
+
+        BindLocalHUD();
 
         if (!sceneAimCam)
             sceneAimCam = FindFirstObjectByType<CinemachineCamera>();
 
         Debug.Log($"[NetworkPlayer] Claim camera. camPivot={(camPivot ? "OK" : "NULL")} sceneAimCam={(sceneAimCam ? "FOUND" : "NULL")} cameraController={(cameraController ? "OK" : "NULL")}");
+
 
         if (!sceneAimCam || !camPivot)
             yield break;
@@ -65,8 +65,48 @@ public class NetworkPlayer : NetworkBehaviour
         sceneAimCam.Follow = camPivot;
         sceneAimCam.LookAt = shoulderTarget ? shoulderTarget : camPivot;
 
-        // ✅ Inject the scene camera into the owner's CameraController so zoom works
         if (cameraController)
             cameraController.SetCinemachine(sceneAimCam);
+    }
+
+    private void BindLocalHUD()
+    {
+        if (!IsOwner) return;
+
+        var ammo = GetComponentInChildren<WeaponAmmoNetcode>(true);
+        var hud = FindFirstObjectByType<AmmoHUDNetcode>();
+
+        if (ammo != null && hud != null)
+        {
+            hud.Bind(ammo);
+        }
+    }
+
+    public void AddPoints(int amount)
+    {
+        if (!IsServer) return;
+
+        Score.Value += amount;
+        Debug.Log($"[SERVER] {name} gained {amount} points. New score = {Score.Value}");
+    }
+
+    public bool TrySpendScore(int amount)
+    {
+        if (!IsServer)
+            return false;
+
+        if (Score.Value < amount)
+            return false;
+
+        Score.Value -= amount;
+        return true;
+    }
+
+    public void RefundScore(int amount)
+    {
+        if (!IsServer)
+            return;
+
+        Score.Value += amount;
     }
 }

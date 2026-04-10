@@ -9,7 +9,7 @@ public class NetworkProjectile : NetworkBehaviour
     [SerializeField] private float lifetime = 2.5f;
 
     [Header("Damage")]
-    [SerializeField] private int damage = 25;
+    [SerializeField] private int damage;
 
     [Header("Motion")]
     [Tooltip("Units per second (you said 200).")]
@@ -34,12 +34,11 @@ public class NetworkProjectile : NetworkBehaviour
 
     [Tooltip("Seconds to keep world impact alive.")]
     [SerializeField] private float worldFxLifetime = 3f;
-
+    
     // Set by Initialize() on server before Spawn()
     private Vector3 dir;
     private ulong shooterClientId;
     private bool hasShooter;
-
     private float spawnTime;
 
     private Vector3 lastPos;
@@ -64,7 +63,7 @@ public class NetworkProjectile : NetworkBehaviour
     /// <summary>
     /// Called on server BEFORE Spawn(). Sets deterministic trajectory.
     /// </summary>
-    public void Initialize(Vector3 directionNormalized, float projectileSpeed, ulong? shooterId)
+    public void Initialize(Vector3 directionNormalized, float projectileSpeed, ulong? shooterId, int damageAmount)
     {
         dir = directionNormalized.sqrMagnitude > 0.0001f ? directionNormalized.normalized : Vector3.forward;
         speed = projectileSpeed;
@@ -180,12 +179,15 @@ public class NetworkProjectile : NetworkBehaviour
         var hp = col.GetComponentInParent<Health>();
         if (hp != null && hp.IsAlive)
         {
-            hp.ApplyDamage(damage);
+            if (hasShooter)
+            {
+                hp.ApplyDamage(damage, shooterClientId);
+                Debug.Log($"{shooterClientId}");
+            }
+            else
+                hp.ApplyDamage(damage, 0);
+
             Debug.Log($"[SERVER] Kinematic projectile hit {hp.name} for {damage}. HP now {hp.CurrentHP.Value}/{hp.MaxHP}");
-        }
-        else
-        {
-            Debug.Log($"[SERVER] Kinematic projectile hit {col.name} (no Health)");
         }
     }
 

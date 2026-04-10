@@ -6,15 +6,16 @@ using UnityEngine.SceneManagement;
 
 public class RoundManager : NetworkBehaviour
 {
-    public enum MatchState : int
-    {
-        Waiting = 0,
-        Playing = 1,
-        Ended = 2
-    }
+    public static RoundManager Instance { get; private set; }
 
     [Header("Scenes")]
+    [SerializeField] private string gameplaySceneName = "Gameplay";
     [SerializeField] private string startMenuSceneName = "StartMenu";
+
+    [Header("Player Spawning")]
+    [SerializeField] private NetworkObject playerPrefab;
+    [SerializeField] private Transform[] playerSpawnPoints;
+    [SerializeField] private float playerSpawnHeightOffset = 1.0f;
 
     [Header("Enemy Spawning")]
     [SerializeField] private NetworkObject enemyPrefab;
@@ -31,6 +32,13 @@ public class RoundManager : NetworkBehaviour
     [Header("Debug")]
     [SerializeField] private bool logState = true;
 
+    public enum MatchState : int
+    {
+        Waiting = 0,
+        Playing = 1,
+        Ended = 2
+    }
+
     public NetworkVariable<int> RoundNumber = new NetworkVariable<int>(
         0,
         NetworkVariableReadPermission.Everyone,
@@ -43,38 +51,168 @@ public class RoundManager : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
+
     private readonly HashSet<ulong> aliveEnemyIds = new HashSet<ulong>();
     private bool ending;
-    private Coroutine roundRoutine;
+    private Coroutine roundFlowRoutine;
 
     public override void OnNetworkSpawn()
     {
-        if (!IsServer) return;
-
-        if (NetworkManager != null)
+        if (Instance != null && Instance != this)
         {
-            NetworkManager.OnClientConnectedCallback += OnClientConnected;
-            NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
+            Destroy(gameObject);
+            return;
         }
 
-        SubscribeAllPlayers();
+        Instance = this;
 
-        roundRoutine = StartCoroutine(ServerStartRoutine());
+        if (!IsServer) return;
+
+        PlayerHealth.AnyPlayerDiedServer += OnAnyPlayerDiedServer;
+
+        if (NetworkManager != null && NetworkManager.SceneManager != null)
+            NetworkManager.SceneManager.OnLoadEventCompleted += OnSceneLoadCompletedServer;
     }
 
     public override void OnNetworkDespawn()
     {
+        if (Instance == this)
+            Instance = null;
+
         if (!IsServer) return;
 
-        if (NetworkManager != null)
+        PlayerHealth.AnyPlayerDiedServer -= OnAnyPlayerDiedServer;
+
+        if (NetworkManager != null && NetworkManager.SceneManager != null)
+            NetworkManager.SceneManager.OnLoadEventCompleted -= OnSceneLoadCompletedServer;
+
+        if (roundFlowRoutine != null)
         {
-            NetworkManager.OnClientConnectedCallback -= OnClientConnected;
-            NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
+            StopCoroutine(roundFlowRoutine);
+            roundFlowRoutine = null;
         }
     }
 
-    private IEnumerator ServerStartRoutine()
+    private void StartRoundFlow(IEnumerator routine)
     {
+        if (roundFlowRoutine != null)
+            StopCoroutine(roundFlowRoutine);
+
+        roundFlowRoutine = StartCoroutine(routine);
+    }
+
+    private void SetStateServer(MatchState s)
+    {
+        State.Value = (int)s;
+
+        if (logState)
+            Debug.Log($"[RoundManager] State -> {s}");
+    }
+
+    private void OnAnyPlayerDiedServer(PlayerHealth deadPlayer)
+    {
+        if (!IsServer) return;
+        if (ending) return;
+
+        Debug.Log($"[RoundManager] Player died ({deadPlayer.name}) -> ending run for everyone.");
+        EndRunServer("PlayerDied");
+    }
+
+    private void EndRunServer(string reason)
+    {
+        if (!IsServer) return;
+        if (ending) return;
+
+        ending = true;
+        SetStateServer(MatchState.Ended);
+
+        Debug.Log($"[RoundManager] Ending run: {reason}");
+        ShowGameOverClientRpc();
+    }
+
+    [ClientRpc]
+    private void ShowGameOverClientRpc()
+    {
+        GameOverUI ui = FindFirstObjectByType<GameOverUI>();
+        if (ui != null)
+            ui.Show();
+    }
+
+    [Rpc(SendTo.Server)]
+    public void RequestRestartRpc()
+    {
+        if (!IsServer) return;
+        if ((MatchState)State.Value != MatchState.Ended) return;
+
+        if (NetworkManager != null &&
+            NetworkManager.NetworkConfig != null &&
+            NetworkManager.NetworkConfig.EnableSceneManagement &&
+            NetworkManager.SceneManager != null)
+        {
+            NetworkManager.SceneManager.LoadScene(gameplaySceneName, LoadSceneMode.Single);
+        }
+    }
+
+    [Rpc(SendTo.Server)]
+    public void RequestReturnToMenuRpc()
+    {
+        if (!IsServer) return;
+
+        ReturnToMenuClientRpc();
+    }
+
+    [ClientRpc]
+    private void ReturnToMenuClientRpc()
+    {
+        StartCoroutine(ReturnToMenuRoutine());
+    }
+
+    private IEnumerator ReturnToMenuRoutine()
+    {
+        yield return null;
+
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.Shutdown();
+        }
+
+        SceneManager.LoadScene(startMenuSceneName, LoadSceneMode.Single);
+    }
+
+    private void OnSceneLoadCompletedServer(
+        string sceneName,
+        LoadSceneMode loadSceneMode,
+        List<ulong> clientsCompleted,
+        List<ulong> clientsTimedOut)
+    {
+        if (!IsServer) return;
+
+        if (sceneName == gameplaySceneName)
+        {
+            Debug.Log("[RoundManager] Gameplay scene load complete. Spawning players and starting round flow.");
+            StartRoundFlow(RespawnPlayersAndStartRoutine());
+        }
+        else if (sceneName == startMenuSceneName)
+        {
+            Debug.Log("[RoundManager] Start menu loaded.");
+            ending = false;
+            aliveEnemyIds.Clear();
+            SetStateServer(MatchState.Waiting);
+            RoundNumber.Value = 0;
+        }
+    }
+
+
+    private IEnumerator RespawnPlayersAndStartRoutine()
+    {
+        yield return null;
+        yield return null;
+
+        RespawnAllPlayersServer();
+
+        ending = false;
+        aliveEnemyIds.Clear();
+
         SetStateServer(MatchState.Waiting);
         RoundNumber.Value = 0;
 
@@ -83,51 +221,47 @@ public class RoundManager : NetworkBehaviour
         if (ending) yield break;
 
         StartNextRoundServer();
+        roundFlowRoutine = null;
     }
 
-    private void SetStateServer(MatchState s)
-    {
-        State.Value = (int)s;
-        if (logState) Debug.Log($"[RoundManager] State -> {s}");
-    }
-
-    private void OnClientConnected(ulong clientId)
-    {
-        // Ensure new player's death ends run
-        SubscribeAllPlayers();
-    }
-
-    private void OnClientDisconnected(ulong clientId)
-    {
-        // Optional: You could treat disconnect as fail later.
-        SubscribeAllPlayers();
-    }
-
-    private void SubscribeAllPlayers()
-    {
-        if (NetworkManager == null) return;
-
-        foreach (var client in NetworkManager.ConnectedClientsList)
-        {
-            var playerObj = client.PlayerObject;
-            if (playerObj == null) continue;
-
-            var hp = playerObj.GetComponentInChildren<Health>(true);
-            if (hp == null) continue;
-
-            // Avoid double subscriptions
-            hp.Died -= OnAnyPlayerDied;
-            hp.Died += OnAnyPlayerDied;
-        }
-    }
-
-    private void OnAnyPlayerDied(Health playerHealth)
+    private void RespawnAllPlayersServer()
     {
         if (!IsServer) return;
-        if (ending) return;
 
-        Debug.Log("[RoundManager] A player died -> ending run for everyone.");
-        EndRunServer("PlayerDied");
+        if (playerPrefab == null)
+        {
+            Debug.LogError("[RoundManager] playerPrefab not assigned.");
+            return;
+        }
+
+        if (playerSpawnPoints == null || playerSpawnPoints.Length == 0)
+        {
+            Debug.LogError("[RoundManager] No playerSpawnPoints assigned.");
+            return;
+        }
+
+        foreach (ulong clientId in NetworkManager.ConnectedClientsIds)
+        {
+            var client = NetworkManager.ConnectedClients[clientId];
+
+            if (client.PlayerObject != null && client.PlayerObject.IsSpawned)
+                client.PlayerObject.Despawn(true);
+
+            Transform sp = playerSpawnPoints[(int)(clientId % (ulong)playerSpawnPoints.Length)];
+            Vector3 spawnPos = sp.position + Vector3.up * playerSpawnHeightOffset;
+
+            Debug.Log($"[RoundManager] Spawning player for client {clientId} at {spawnPos}");
+
+            NetworkObject player = Instantiate(playerPrefab, spawnPos, sp.rotation);
+            player.SpawnAsPlayerObject(clientId, true);
+
+            CharacterController cc = player.GetComponent<CharacterController>();
+            if (cc != null)
+            {
+                cc.enabled = false;
+                cc.enabled = true;
+            }
+        }
     }
 
     private void StartNextRoundServer()
@@ -136,12 +270,24 @@ public class RoundManager : NetworkBehaviour
         if (ending) return;
 
         SetStateServer(MatchState.Playing);
+
         RoundNumber.Value = Mathf.Max(1, RoundNumber.Value + 1);
+
+        ShowRoundStartClientRpc(RoundNumber.Value);
 
         int enemyCount = baseEnemies + (RoundNumber.Value - 1) * enemiesPerRound;
         Debug.Log($"[RoundManager] Round {RoundNumber.Value} starting. Spawning {enemyCount} enemies.");
 
         SpawnEnemiesServer(enemyCount);
+    }
+
+    [ClientRpc]
+    private void ShowRoundStartClientRpc(int roundNumber)
+    {
+        if (RoundUI.Instance == null) return;
+
+        RoundUI.Instance.SetRound(roundNumber);
+        RoundUI.Instance.ShowRoundStart(roundNumber);
     }
 
     private void SpawnEnemiesServer(int count)
@@ -153,6 +299,7 @@ public class RoundManager : NetworkBehaviour
             Debug.LogError("[RoundManager] enemyPrefab not assigned.");
             return;
         }
+
         if (spawnPoints == null || spawnPoints.Length == 0)
         {
             Debug.LogError("[RoundManager] No spawnPoints assigned.");
@@ -187,12 +334,8 @@ public class RoundManager : NetworkBehaviour
         if (no != null)
             aliveEnemyIds.Remove(no.NetworkObjectId);
 
-        if (logState) Debug.Log($"[RoundManager] Enemy died. Remaining: {aliveEnemyIds.Count}");
-
         if (aliveEnemyIds.Count == 0 && (MatchState)State.Value == MatchState.Playing)
-        {
             StartCoroutine(NextRoundAfterDelay());
-        }
     }
 
     private IEnumerator NextRoundAfterDelay()
@@ -202,40 +345,5 @@ public class RoundManager : NetworkBehaviour
         if (ending) yield break;
 
         StartNextRoundServer();
-    }
-
-    private void EndRunServer(string reason)
-    {
-        if (!IsServer) return;
-        if (ending) return;
-
-        ending = true;
-        SetStateServer(MatchState.Ended);
-
-        Debug.Log($"[RoundManager] Ending run: {reason}");
-
-        // Preferred: NGO scene management (synced load)
-        bool ngoSceneManagement =
-            NetworkManager != null &&
-            NetworkManager.NetworkConfig != null &&
-            NetworkManager.NetworkConfig.EnableSceneManagement &&
-            NetworkManager.SceneManager != null;
-
-        if (ngoSceneManagement)
-        {
-            NetworkManager.SceneManager.LoadScene(startMenuSceneName, LoadSceneMode.Single);
-        }
-        else
-        {
-            Debug.LogError("[RoundManager] EnableSceneManagement is OFF. Falling back to local SceneManager load via ClientRpc.");
-            LoadStartMenuClientRpc();
-            SceneManager.LoadScene(startMenuSceneName);
-        }
-    }
-
-    [ClientRpc]
-    private void LoadStartMenuClientRpc()
-    {
-        SceneManager.LoadScene(startMenuSceneName);
     }
 }
