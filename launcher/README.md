@@ -15,6 +15,7 @@ Required for auth:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
+- `VITE_REQUIRE_BETA_ACCESS`
 
 Required for game install/update:
 
@@ -81,9 +82,48 @@ using (auth.uid() = id);
 ## Suggested Hosting Path
 
 - Website download page: host on Vercel, Netlify, or Cloudflare Pages
-- Launcher installer: GitHub Releases first, then your own CDN later if you want
-- Game zip + manifest: Supabase Storage to start, Cloudflare R2 or Backblaze later if download volume grows
+- Launcher installer: GitHub Releases first, then your own downloads domain later if you want
+- Game zip + manifest: Cloudflare R2 behind `cdn.yourdomain.com`
 - Access codes: add an `entitlements` or `invites` table later and check it after login before enabling install/play
+
+## Local Feed During Development
+
+You now have a local feed folder at `distribution/game-feed`.
+
+After generating a Windows build into `builds/windows`, package it with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\package-game-build.ps1 -Version 0.1.0 -BaseUrl http://localhost:8080
+```
+
+That produces:
+
+- `distribution/game-feed/downloads/coop-shooter-<version>-win64.zip`
+- `distribution/game-feed/manifests/windows-stable.json`
+
+Point `LAUNCHER_GAME_MANIFEST_URL` to the hosted manifest URL and the launcher will install/update from there.
+
+## Production-Shaped Beta URLs
+
+Recommended split:
+
+- Website: `https://play.yourdomain.com`
+- Game manifest/feed: `https://cdn.yourdomain.com/manifests/windows-stable.json`
+- Launcher installer: `https://downloads.yourdomain.com/Co-op-Shooter-Launcher-Setup.exe`
+
+The launcher `.env` example now follows that layout.
+
+## Beta Access
+
+The renderer now supports invite-code gating through Supabase:
+
+- sign in
+- auto-create/update `profiles`
+- check `beta_entitlements`
+- redeem an invite code if access is missing
+- unlock install and launch once access is granted
+
+Run the SQL in [`supabase/sql/beta_access.sql`](C:\Users\ajsei\Desktop\Projects\co-op-shooter\supabase\sql\beta_access.sql) to create the tables and RPC.
 
 ## Notes
 

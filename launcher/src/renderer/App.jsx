@@ -18,11 +18,23 @@ function getSupabaseClient() {
 }
 
 const supabase = getSupabaseClient();
+const requiresBetaAccess = import.meta.env.VITE_REQUIRE_BETA_ACCESS !== "false";
 
-function AuthCard({ session, profile, authMessage, onSignIn, onSignUp, onSignOut, onSaveProfile }) {
+function AuthCard({
+  session,
+  profile,
+  entitlement,
+  authMessage,
+  onSignIn,
+  onSignUp,
+  onSignOut,
+  onSaveProfile,
+  onRedeemCode,
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState(profile?.display_name || "");
+  const [inviteCode, setInviteCode] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -46,6 +58,16 @@ function AuthCard({ session, profile, authMessage, onSignIn, onSignUp, onSignOut
     setBusy(true);
     try {
       await onSaveProfile(displayName);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRedeemCode() {
+    setBusy(true);
+    try {
+      await onRedeemCode(inviteCode.trim().toUpperCase());
+      setInviteCode("");
     } finally {
       setBusy(false);
     }
@@ -126,6 +148,35 @@ function AuthCard({ session, profile, authMessage, onSignIn, onSignUp, onSignOut
             </button>
           </div>
 
+          {requiresBetaAccess && (
+            <>
+              <div className={`notice ${entitlement?.hasAccess ? "" : "warning"}`}>
+                {entitlement?.hasAccess
+                  ? `Beta access granted${entitlement.code ? ` via ${entitlement.code}` : ""}.`
+                  : "No beta access on this account yet. Redeem an invite code to unlock install and play."}
+              </div>
+
+              {!entitlement?.hasAccess && (
+                <>
+                  <label className="field">
+                    <span>Invite Code</span>
+                    <input
+                      value={inviteCode}
+                      onChange={(event) => setInviteCode(event.target.value)}
+                      placeholder="BETA-XXXX"
+                    />
+                  </label>
+
+                  <div className="button-row">
+                    <button className="secondary" disabled={busy || !supabase || !inviteCode.trim()} onClick={handleRedeemCode}>
+                      Redeem Code
+                    </button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
           <p className="muted">
             Profile row source: Supabase `profiles` table keyed to `auth.users`.
           </p>
@@ -144,6 +195,7 @@ function GameCard({
   launcherInfo,
   launcherUpdate,
   busy,
+  canInstall,
   canPlay,
   onRefresh,
   onInstall,
@@ -209,7 +261,7 @@ function GameCard({
           {downloadProgress ? <div className="notice">{progressText}</div> : null}
 
           <div className="button-row">
-            <button className="primary" disabled={busy || !state?.config?.manifestConfigured} onClick={onInstall}>
+            <button className="primary" disabled={busy || !state?.config?.manifestConfigured || !canInstall} onClick={onInstall}>
               {installLabel}
             </button>
             <button className="secondary" disabled={busy} onClick={onRefresh}>
@@ -276,6 +328,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [entitlement, setEntitlement] = useState({ hasAccess: !requiresBetaAccess, code: null });
 
   useEffect(() => {
     let releaseLauncherEvents = () => {};
@@ -308,14 +361,17 @@ export default function App() {
 
         if (currentSession.data.session?.user) {
           await ensureProfile(currentSession.data.session.user);
+          await refreshEntitlement(currentSession.data.session.user.id);
         }
 
         const authListener = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
           setSession(nextSession);
           if (nextSession?.user) {
             await ensureProfile(nextSession.user);
+            await refreshEntitlement(nextSession.user.id);
           } else {
             setProfile(null);
+            setEntitlement({ hasAccess: !requiresBetaAccess, code: null });
           }
         });
 
@@ -363,6 +419,33 @@ export default function App() {
     return upserted;
   }
 
+  async function refreshEntitlement(userId) {
+    if (!supabase || !requiresBetaAccess) {
+      setEntitlement({ hasAccess: true, code: null });
+      return { hasAccess: true, code: null };
+    }
+
+    const { data, error } = await supabase
+      .from("beta_entitlements")
+      .select("invite_code, granted_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      setAuthMessage(error.message);
+      return { hasAccess: false, code: null };
+    }
+
+    const nextEntitlement = {
+      hasAccess: !!data,
+      code: data?.invite_code || null,
+      grantedAt: data?.granted_at || null,
+    };
+
+    setEntitlement(nextEntitlement);
+    return nextEntitlement;
+  }
+
   async function refreshGameState() {
     const state = await window.desktop.game.checkForUpdates();
     setGameState(state);
@@ -372,6 +455,11 @@ export default function App() {
   async function handleInstall() {
     if (!session) {
       setInstallMessage("Sign in before installing the game.");
+      return;
+    }
+
+    if (requiresBetaAccess && !entitlement.hasAccess) {
+      setInstallMessage("Redeem a valid beta invite code before installing the game.");
       return;
     }
 
@@ -393,6 +481,11 @@ export default function App() {
   async function handleLaunch() {
     if (!session) {
       setInstallMessage("Sign in before launching the game.");
+      return;
+    }
+
+    if (requiresBetaAccess && !entitlement.hasAccess) {
+      setInstallMessage("Redeem a valid beta invite code before launching the game.");
       return;
     }
 
@@ -461,7 +554,38 @@ export default function App() {
     setAuthMessage("Profile updated.");
   }
 
-  const canPlay = !!session && !!gameState?.installed?.canLaunch && !busy;
+  async function handleRedeemCode(code) {
+    if (!code) {
+      setAuthMessage("Enter an invite code first.");
+      return;
+    }
+
+    setAuthMessage("");
+
+    const { data, error } = await supabase.rpc("redeem_invite_code", {
+      input_code: code,
+    });
+
+    if (error) {
+      setAuthMessage(error.message);
+      return;
+    }
+
+    const result = Array.isArray(data) ? data[0] : data;
+    if (!result?.success) {
+      setAuthMessage(result?.message || "That invite code could not be redeemed.");
+      return;
+    }
+
+    await refreshEntitlement(session.user.id);
+    setAuthMessage(result.message || "Invite code redeemed.");
+  }
+
+  const canInstallOrPlay =
+    !!session &&
+    (!!entitlement.hasAccess || !requiresBetaAccess) &&
+    !busy;
+  const canPlay = canInstallOrPlay && !!gameState?.installed?.canLaunch;
 
   return (
     <main className="app-shell">
@@ -475,6 +599,7 @@ export default function App() {
         launcherInfo={launcherInfo}
         launcherUpdate={launcherUpdate}
         busy={busy}
+        canInstall={canInstallOrPlay}
         canPlay={canPlay}
         onRefresh={refreshGameState}
         onInstall={handleInstall}
@@ -489,11 +614,13 @@ export default function App() {
       <AuthCard
         session={session}
         profile={profile}
+        entitlement={entitlement}
         authMessage={authMessage}
         onSignIn={handleSignIn}
         onSignUp={handleSignUp}
         onSignOut={handleSignOut}
         onSaveProfile={handleSaveProfile}
+        onRedeemCode={handleRedeemCode}
       />
     </main>
   );

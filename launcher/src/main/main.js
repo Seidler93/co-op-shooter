@@ -3,9 +3,8 @@ const { autoUpdater } = require("electron-updater");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const fsp = require("fs/promises");
+const os = require("os");
 const path = require("path");
-const { pipeline } = require("stream/promises");
-const { Readable } = require("stream");
 
 const APP_CHANNEL = "stable";
 const DEFAULT_GAME_EXECUTABLE = "CoopShooter.exe";
@@ -89,16 +88,21 @@ function getLauncherInfo() {
 }
 
 function getConfig() {
+  const localDataRoot =
+    process.env.LAUNCHER_LOCAL_DATA_DIR ||
+    path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "coop-shooter-launcher");
+
   const installRoot =
     process.env.LAUNCHER_GAME_INSTALL_DIR ||
-    path.join(app.getPath("userData"), "game-install");
+    path.join(localDataRoot, "game-install");
 
   return {
     manifestUrl: process.env.LAUNCHER_GAME_MANIFEST_URL || "",
     gameExecutable: process.env.LAUNCHER_GAME_EXECUTABLE || DEFAULT_GAME_EXECUTABLE,
     installRoot,
-    metadataPath: path.join(app.getPath("userData"), "game-install.json"),
-    downloadsRoot: path.join(app.getPath("userData"), "downloads"),
+    metadataPath: path.join(localDataRoot, "game-install.json"),
+    downloadsRoot: path.join(localDataRoot, "downloads"),
+    stagingRoot: path.join(localDataRoot, "staging"),
     websiteUrl: process.env.LAUNCHER_WEBSITE_URL || "",
   };
 }
@@ -128,6 +132,35 @@ async function pathExists(targetPath) {
   } catch (error) {
     return false;
   }
+}
+
+async function findFileRecursive(rootDir, fileName) {
+  if (!(await pathExists(rootDir))) {
+    return null;
+  }
+
+  const entries = await fsp.readdir(rootDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const fullPath = path.join(rootDir, entry.name);
+
+    if (entry.isFile() && entry.name.toLowerCase() === fileName.toLowerCase()) {
+      return fullPath;
+    }
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const nestedMatch = await findFileRecursive(path.join(rootDir, entry.name), fileName);
+    if (nestedMatch) {
+      return nestedMatch;
+    }
+  }
+
+  return null;
 }
 
 function getDevBuildPath() {
@@ -306,29 +339,21 @@ function isGameRunning(executablePath) {
 
 async function downloadFile(url, destinationPath) {
   const response = await fetch(url);
-  if (!response.ok || !response.body) {
+  if (!response.ok) {
     throw new Error(`Download failed with ${response.status} ${response.statusText}`);
   }
 
   const total = Number(response.headers.get("content-length") || 0);
-  let transferred = 0;
-
   await ensureDir(path.dirname(destinationPath));
+  const buffer = Buffer.from(await response.arrayBuffer());
 
-  const writeStream = fs.createWriteStream(destinationPath);
-  const nodeStream = Readable.fromWeb(response.body);
+  await fsp.writeFile(destinationPath, buffer);
 
-  nodeStream.on("data", (chunk) => {
-    transferred += chunk.length;
-
-    sendToRenderer("game:download-progress", {
-      transferred,
-      total,
-      percent: total > 0 ? Math.round((transferred / total) * 100) : null,
-    });
+  sendToRenderer("game:download-progress", {
+    transferred: buffer.length,
+    total: total || buffer.length,
+    percent: 100,
   });
-
-  await pipeline(nodeStream, writeStream);
 }
 
 function extractZip(zipPath, destinationDir) {
@@ -372,7 +397,7 @@ async function installGame() {
     }
 
     const zipPath = path.join(config.downloadsRoot, manifest.fileName);
-    const stagingDir = path.join(app.getPath("userData"), "staging", manifest.version);
+    const stagingDir = path.join(config.stagingRoot, manifest.version);
     const finalInstallDir = config.installRoot;
 
     sendToRenderer("game:install-status", {
@@ -397,10 +422,18 @@ async function installGame() {
     });
 
     await fsp.rm(finalInstallDir, { recursive: true, force: true });
-    await ensureDir(path.dirname(finalInstallDir));
-    await fsp.rename(stagingDir, finalInstallDir);
+    await ensureDir(finalInstallDir);
+    await extractZip(zipPath, finalInstallDir);
 
-    const executablePath = resolveExecutable(finalInstallDir, manifest.launchExecutable);
+    const extractedExecutablePath = await findFileRecursive(finalInstallDir, manifest.launchExecutable);
+    if (!extractedExecutablePath) {
+      throw new Error(
+        `Install completed, but the launcher could not find ${manifest.launchExecutable} in ${finalInstallDir}.`
+      );
+    }
+
+    const resolvedInstallDir = path.dirname(extractedExecutablePath);
+    const executablePath = extractedExecutablePath;
     if (!(await pathExists(executablePath))) {
       throw new Error(
         `Install completed, but the launcher could not find ${manifest.launchExecutable} in ${finalInstallDir}.`
@@ -409,7 +442,7 @@ async function installGame() {
 
     await writeJson(config.metadataPath, {
       version: manifest.version,
-      installDir: finalInstallDir,
+      installDir: resolvedInstallDir,
       launchExecutable: manifest.launchExecutable,
       installedAt: new Date().toISOString(),
     });
