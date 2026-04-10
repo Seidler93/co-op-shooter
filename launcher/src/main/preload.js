@@ -1,23 +1,30 @@
-// src/main/preload.js
 const { contextBridge, ipcRenderer } = require("electron");
 
-// Expose only what you need to the renderer
-contextBridge.exposeInMainWorld("launcher", {
-  checkForUpdates: () => ipcRenderer.invoke("update:check"),
-  onUpdateAvailable: (cb) => ipcRenderer.on("update:available", () => cb()),
-  onUpdateDownloaded: (cb) => ipcRenderer.on("update:downloaded", () => cb())
-});
+function subscribe(channel, callback) {
+  const listener = (_event, payload) => callback(payload);
+  ipcRenderer.on(channel, listener);
 
-contextBridge.exposeInMainWorld("game", {
-  /**
-   * Launch the Unity game.
-   * @returns {Promise<{ ok: true } | { ok: false, code: string, message: string }>}
-   */
-  launch: () => ipcRenderer.invoke("game:launch"),
+  return () => {
+    ipcRenderer.removeListener(channel, listener);
+  };
+}
 
-  /**
-   * Optional helper: query running state.
-   * @returns {Promise<{ ok: true, running: boolean } | { ok: false, code: string, message: string }>}
-   */
-  status: () => ipcRenderer.invoke("game:status"),
+contextBridge.exposeInMainWorld("desktop", {
+  launcher: {
+    getInfo: () => ipcRenderer.invoke("launcher:get-info"),
+    checkForUpdates: () => ipcRenderer.invoke("launcher:check-for-updates"),
+    downloadUpdate: () => ipcRenderer.invoke("launcher:download-update"),
+    quitAndInstall: () => ipcRenderer.invoke("launcher:quit-and-install"),
+    openWebsite: () => ipcRenderer.invoke("launcher:open-website"),
+    onUpdateStatus: (callback) => subscribe("launcher:update-status", callback),
+  },
+  game: {
+    getState: () => ipcRenderer.invoke("game:get-state"),
+    checkForUpdates: () => ipcRenderer.invoke("game:check-for-updates"),
+    installOrUpdate: () => ipcRenderer.invoke("game:install-or-update"),
+    launch: () => ipcRenderer.invoke("game:launch"),
+    openInstallDirectory: () => ipcRenderer.invoke("game:open-install-directory"),
+    onDownloadProgress: (callback) => subscribe("game:download-progress", callback),
+    onInstallStatus: (callback) => subscribe("game:install-status", callback),
+  },
 });
