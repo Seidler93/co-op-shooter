@@ -10,8 +10,10 @@ function BetaAccessBadge({ active }) {
   );
 }
 
-function LauncherStatusFooter({ launcherRuntime }) {
+function LauncherStatusFooter({ launcherRuntime, gameRuntime }) {
   const phase = launcherRuntime.launcherUpdate?.phase || "idle";
+  const launcherVersion = launcherRuntime.launcherInfo?.version || "...";
+  const installedVersion = gameRuntime.gameState?.installed?.installedVersion || "Not installed";
   const labelMap = {
     idle: "Launcher up to date",
     checking: "Checking launcher update",
@@ -23,20 +25,24 @@ function LauncherStatusFooter({ launcherRuntime }) {
   };
 
   return (
-    <footer className={`launcher-status-footer ${phase}`}>
-      <span className="footer-status-dot" />
-      <span>{labelMap[phase] || launcherRuntime.launcherUpdate?.message || "Launcher status unavailable"}</span>
+    <footer className="dashboard-footer">
+      <div className={`launcher-status-footer ${phase}`}>
+        <span className="footer-status-dot" />
+        <span>{labelMap[phase] || launcherRuntime.launcherUpdate?.message || "Launcher status unavailable"}</span>
+      </div>
+      <div className="footer-version-meta">
+        <span>Launcher v{launcherVersion}</span>
+        <span>Game {installedVersion}</span>
+      </div>
     </footer>
   );
 }
 
-function DashboardHeader({ authState, launcherRuntime, gameRuntime, onOpenSettings }) {
+function DashboardHeader({ authState, gameRuntime, onOpenSettings }) {
   const [isMenuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const profileName = authState.profile?.display_name || authState.session?.user?.email || "Pilot";
   const installPath = gameRuntime.gameState?.installed?.installDir || "Not selected yet";
-  const installedVersion = gameRuntime.gameState?.installed?.installedVersion || "Not installed";
-  const latestVersion = gameRuntime.gameState?.remote?.version || "Unknown";
 
   useEffect(() => {
     function handlePointer(event) {
@@ -57,9 +63,6 @@ function DashboardHeader({ authState, launcherRuntime, gameRuntime, onOpenSettin
       </div>
 
       <div className="header-actions" ref={menuRef}>
-        <div className="launcher-version-chip">Launcher v{launcherRuntime.launcherInfo?.version || "..."}</div>
-        <div className="launcher-version-chip">Installed {installedVersion}</div>
-        <div className="launcher-version-chip">Latest {latestVersion}</div>
         <BetaAccessBadge active={authState.hasBetaAccess} />
         <button className="profile-button" onClick={() => setMenuOpen((value) => !value)} type="button">
           <span className="profile-meta">
@@ -241,7 +244,6 @@ export default function Dashboard({
     <section className="dashboard-shell">
       <DashboardHeader
         authState={authState}
-        launcherRuntime={launcherRuntime}
         gameRuntime={gameRuntime}
         onOpenSettings={onOpenSettings}
       />
@@ -269,7 +271,7 @@ export default function Dashboard({
         </div>
       </div>
 
-      <LauncherStatusFooter launcherRuntime={launcherRuntime} />
+      <LauncherStatusFooter launcherRuntime={launcherRuntime} gameRuntime={gameRuntime} />
     </section>
   );
 }

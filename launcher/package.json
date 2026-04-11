@@ -1,6 +1,6 @@
 {
   "name": "coop-shooter-launcher",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Beta launcher for Co-op Shooter.",
   "main": "src/main/main.js",
   "private": true,

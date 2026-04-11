@@ -4,11 +4,11 @@ function AuthForm({ mode, busy, onSubmit }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const title = mode === "login" ? "Welcome back" : "Create your pilot profile";
+  const title = mode === "login" ? "Login" : "Create account";
   const subtitle =
     mode === "login"
-      ? "Sign in to access your beta entitlement, updates, and install state."
-      : "Create an account once and keep your launcher access synced across updates.";
+      ? "Sign in to download and launch the beta."
+      : "Create an account to request beta access.";
   const buttonLabel = mode === "login" ? "Login" : "Create Account";
 
   return (
@@ -20,7 +20,6 @@ function AuthForm({ mode, busy, onSubmit }) {
       }}
     >
       <div className="auth-copy">
-        <p className="eyebrow">Secure Access</p>
         <h1>{title}</h1>
         <p className="muted">{subtitle}</p>
       </div>
@@ -74,31 +73,12 @@ export default function AuthScreen({ authState }) {
   return (
     <section className="auth-screen">
       <div className="auth-stage">
-        <aside className="auth-hero panel">
-          <p className="eyebrow">Co-op Shooter</p>
-          <h2>Private beta launcher</h2>
-          <p className="muted">
-            Authenticate first, then manage updates, redeem beta access, and launch the game from a single tactical
-            dashboard.
-          </p>
-
-          <div className="auth-feature-list">
-            <div className="auth-feature">
-              <strong>Automatic checks</strong>
-              <span>Launcher and game updates are checked on startup.</span>
-            </div>
-            <div className="auth-feature">
-              <strong>Access aware</strong>
-              <span>Beta keys unlock install rights without breaking the launcher flow.</span>
-            </div>
-            <div className="auth-feature">
-              <strong>Ready for backend growth</strong>
-              <span>Auth, profile, and beta entitlement logic stay modular for future integrations.</span>
-            </div>
-          </div>
-        </aside>
-
         <section className="auth-card panel">
+          <div className="auth-title">
+            <p className="eyebrow">Co-op Shooter Launcher</p>
+            <h2>Project Z</h2>
+          </div>
+
           <div className="auth-toggle">
             <button
               className={mode === "login" ? "toggle-chip active" : "toggle-chip"}
