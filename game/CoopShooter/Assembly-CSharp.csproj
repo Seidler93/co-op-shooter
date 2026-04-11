@@ -59,6 +59,7 @@
     <Compile Include="Assets\Scripts\EnemyAI.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\Benchmark02.cs" />
     <Compile Include="Assets\Scripts\AmmoHUDNetcode.cs" />
+    <Compile Include="Assets\Scripts\UI\MainMenuPlayController.cs" />
     <Compile Include="Assets\Scripts\CrosshairController.cs" />
     <Compile Include="Assets\Scripts\Player\PlayerNetwork.cs" />
     <Compile Include="Assets\Scripts\Player\PlayerRefs.cs" />
@@ -94,6 +95,7 @@
     <Compile Include="Assets\Scripts\GameOverUI.cs" />
     <Compile Include="Assets\Scripts\ScoreUI.cs" />
     <Compile Include="Assets\Scripts\RoundManager.cs" />
+    <Compile Include="Assets\Scripts\UI\PartyPanelUI.cs" />
     <Compile Include="Assets\JMO Assets\WarFX\Demo\Assets\CFX_AutoStopLoopedEffect.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\Benchmark01_UGUI.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\SimpleScript.cs" />
@@ -119,6 +121,7 @@
     <Compile Include="Assets\Scripts\NetworkWeaponAim.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\DropdownSample.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexColorCycler.cs" />
+    <Compile Include="Assets\Scripts\UI\PartyMemberCardUI.cs" />
     <Compile Include="Assets\Scripts\Weapons\WeaponAudio.cs" />
     <Compile Include="Assets\Scripts\Player\PlayerHealth.cs" />
     <Compile Include="Assets\JMO Assets\WarFX\Demo\Assets\WFX_Demo_DeleteAfterDelay.cs" />

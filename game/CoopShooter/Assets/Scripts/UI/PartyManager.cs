@@ -1,10 +1,13 @@
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PartyManager : NetworkBehaviour
 {
     public static PartyManager Instance { get; private set; }
+
+    [SerializeField] private string gameplaySceneName = "Gameplay";
 
     public NetworkList<FixedString64Bytes> Players;
 
@@ -36,6 +39,53 @@ public class PartyManager : NetworkBehaviour
             NetworkManager.OnClientConnectedCallback -= HandleClientConnected;
             NetworkManager.OnClientDisconnectCallback -= HandleClientDisconnected;
         }
+    }
+
+    public override void OnDestroy()
+    {
+        base.OnDestroy();
+
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+
+        Players?.Dispose();
+    }
+
+    public void RequestStartGame()
+    {
+        if (!IsSpawned)
+        {
+            Debug.LogWarning("[PartyManager] Cannot start game before PartyManager is network-spawned.");
+            return;
+        }
+
+        if (IsServer)
+        {
+            StartGameForParty();
+        }
+        else
+        {
+            RequestStartGameRpc();
+        }
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void RequestStartGameRpc()
+    {
+        Debug.Log("[PartyManager] Client requested game start.");
+        StartGameForParty();
+    }
+
+    private void StartGameForParty()
+    {
+        if (!IsServer || NetworkManager == null)
+        {
+            return;
+        }
+
+        NetworkManager.SceneManager.LoadScene(gameplaySceneName, LoadSceneMode.Single);
     }
 
     private void HandleClientConnected(ulong clientId)
