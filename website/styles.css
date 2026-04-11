@@ -1,14 +1,18 @@
 :root {
   color-scheme: dark;
-  --bg: #0d1215;
-  --panel: rgba(22, 29, 34, 0.85);
-  --line: rgba(255, 255, 255, 0.1);
-  --text: #f3efe8;
-  --muted: #b9b7b0;
-  --accent: #ff7a1a;
-  --cool: #81d8d7;
-  --shadow: 0 24px 64px rgba(0, 0, 0, 0.34);
-  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --bg: #0d0f14;
+  --bg-deep: #07090d;
+  --panel: rgba(21, 25, 34, 0.88);
+  --panel-strong: rgba(28, 34, 48, 0.94);
+  --line: rgba(160, 167, 184, 0.13);
+  --line-strong: rgba(160, 167, 184, 0.24);
+  --text: #ffffff;
+  --muted: #a0a7b8;
+  --muted-deep: #6b7280;
+  --accent: #4d7cff;
+  --accent-strong: #7cf5a3;
+  --shadow: 0 22px 70px rgba(0, 0, 0, 0.45);
+  font-family: "Segoe UI Semibold", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 
 * {
@@ -20,9 +24,9 @@ body {
   margin: 0;
   min-height: 100%;
   background:
-    radial-gradient(circle at top left, rgba(255, 122, 26, 0.18), transparent 24%),
-    radial-gradient(circle at bottom right, rgba(129, 216, 215, 0.12), transparent 28%),
-    linear-gradient(180deg, #0d1215 0%, #12181c 100%);
+    radial-gradient(circle at 15% 10%, rgba(77, 124, 255, 0.13), transparent 26%),
+    radial-gradient(circle at 82% 86%, rgba(124, 245, 163, 0.07), transparent 24%),
+    linear-gradient(180deg, #0d0f14 0%, #0a0d12 48%, #07090d 100%);
   color: var(--text);
 }
 
@@ -30,7 +34,20 @@ body {
   min-height: 100vh;
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(160, 167, 184, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(160, 167, 184, 0.018) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: radial-gradient(circle at center, black 46%, transparent 100%);
+  pointer-events: none;
+}
+
 .page-shell {
+  position: relative;
   max-width: 1120px;
   margin: 0 auto;
   padding: 32px 20px 64px;
@@ -41,39 +58,44 @@ body {
   grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.8fr);
   gap: 24px;
   align-items: stretch;
-  margin-bottom: 28px;
+  margin-bottom: 18px;
 }
 
 .hero-copy,
 .panel,
 .hero-card {
   border: 1px solid var(--line);
-  border-radius: 28px;
+  border-radius: 16px;
   background: var(--panel);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(18px);
   box-shadow: var(--shadow);
 }
 
 .hero-copy {
+  background:
+    linear-gradient(145deg, rgba(77, 124, 255, 0.12), transparent 40%),
+    var(--panel-strong);
   padding: 36px;
 }
 
 .hero-card {
   padding: 28px;
+  background: var(--panel);
 }
 
 .eyebrow {
   margin: 0 0 10px;
   text-transform: uppercase;
-  letter-spacing: 0.18em;
-  font-size: 12px;
-  color: var(--cool);
+  letter-spacing: 0.2em;
+  font-size: 11px;
+  color: var(--accent);
 }
 
 h1 {
   margin: 0 0 14px;
   font-size: clamp(3rem, 8vw, 5.4rem);
   line-height: 0.95;
+  letter-spacing: -0.05em;
 }
 
 h2,
@@ -100,28 +122,41 @@ p {
   align-items: center;
   justify-content: center;
   padding: 14px 20px;
-  border-radius: 999px;
+  border-radius: 12px;
   text-decoration: none;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .button.primary {
-  background: linear-gradient(135deg, #ff7a1a, #ffb255);
-  color: #1d140c;
+  background: linear-gradient(135deg, #4d7cff, #315de0);
+  box-shadow: 0 0 24px rgba(77, 124, 255, 0.2);
+  color: #ffffff;
 }
 
 .button.secondary {
-  border: 1px solid rgba(129, 216, 215, 0.32);
-  color: var(--cool);
+  border: 1px solid rgba(77, 124, 255, 0.28);
+  color: var(--accent);
+}
+
+.button:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
 }
 
 .badge {
   display: inline-block;
   padding: 8px 12px;
-  border-radius: 999px;
+  border-radius: 12px;
   margin-bottom: 16px;
-  background: rgba(255, 122, 26, 0.14);
-  color: #ffc189;
+  background: rgba(124, 245, 163, 0.08);
+  border: 1px solid rgba(124, 245, 163, 0.3);
+  color: #d9ffe4;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .hero-card ol {
@@ -167,8 +202,8 @@ p {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: rgba(255, 122, 26, 0.16);
-  color: #ffcb96;
+  background: rgba(77, 124, 255, 0.16);
+  color: var(--text);
   margin-bottom: 12px;
 }
 
