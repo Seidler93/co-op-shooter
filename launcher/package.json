@@ -1,6 +1,6 @@
 {
   "name": "coop-shooter-launcher",
-  "version": "0.1.2",
+  "version": "0.1.9",
   "description": "Beta launcher for Co-op Shooter.",
   "main": "src/main/main.js",
   "private": true,
@@ -38,6 +38,7 @@
   "build": {
     "appId": "com.yourstudio.coopshooter",
     "productName": "Co-op Shooter",
+    "artifactName": "Co-op-Shooter-Setup-${version}.${ext}",
     "directories": {
       "output": "release"
     },

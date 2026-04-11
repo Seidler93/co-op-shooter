@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { spawn } = require("child_process");
 const fs = require("fs");
@@ -55,11 +55,13 @@ function sendToRenderer(channel, payload) {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 1080,
-    minHeight: 720,
+    width: 1060,
+    height: 680,
+    minWidth: 860,
+    minHeight: 560,
     backgroundColor: "#101417",
+    autoHideMenuBar: true,
+    menuBarVisible: false,
     titleBarStyle: "hiddenInset",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -98,6 +100,7 @@ function getConfig() {
 
   return {
     manifestUrl: process.env.LAUNCHER_GAME_MANIFEST_URL || "",
+    launcherUpdateBaseUrl: process.env.LAUNCHER_UPDATE_BASE_URL || "",
     gameExecutable: process.env.LAUNCHER_GAME_EXECUTABLE || DEFAULT_GAME_EXECUTABLE,
     installRoot,
     metadataPath: path.join(localDataRoot, "game-install.json"),
@@ -118,6 +121,15 @@ async function readJson(filePath, fallback = null) {
   } catch (error) {
     return fallback;
   }
+}
+
+async function getUserPreferences(config) {
+  return readJson(config.metadataPath, {});
+}
+
+async function getPreferredInstallRoot(config) {
+  const metadata = await getUserPreferences(config);
+  return metadata.preferredInstallDir || config.installRoot;
 }
 
 async function writeJson(filePath, value) {
@@ -175,6 +187,7 @@ function resolveExecutable(baseDir, relativeExecutable) {
 async function getInstalledGameRecord() {
   const config = getConfig();
   const metadata = await readJson(config.metadataPath, null);
+  const preferredInstallRoot = await getPreferredInstallRoot(config);
 
   if (metadata && metadata.installDir) {
     const exePath = resolveExecutable(
@@ -208,8 +221,8 @@ async function getInstalledGameRecord() {
 
   return {
     source: "none",
-    installDir: config.installRoot,
-    executablePath: resolveExecutable(config.installRoot, config.gameExecutable),
+    installDir: preferredInstallRoot,
+    executablePath: resolveExecutable(preferredInstallRoot, config.gameExecutable),
     installedVersion: null,
     launchExecutable: config.gameExecutable,
     installedAt: null,
@@ -391,6 +404,8 @@ async function installGame() {
   gameInstallInFlight = (async () => {
     const config = getConfig();
     const manifest = await getRemoteManifest();
+    const preferredInstallRoot = await getPreferredInstallRoot(config);
+    const existingMetadata = await readJson(config.metadataPath, {});
 
     if (!manifest) {
       throw new Error("A remote game manifest is required before the launcher can install the game.");
@@ -398,7 +413,7 @@ async function installGame() {
 
     const zipPath = path.join(config.downloadsRoot, manifest.fileName);
     const stagingDir = path.join(config.stagingRoot, manifest.version);
-    const finalInstallDir = config.installRoot;
+    const finalInstallDir = preferredInstallRoot;
 
     sendToRenderer("game:install-status", {
       phase: "downloading",
@@ -441,6 +456,7 @@ async function installGame() {
     }
 
     await writeJson(config.metadataPath, {
+      ...existingMetadata,
       version: manifest.version,
       installDir: resolvedInstallDir,
       launchExecutable: manifest.launchExecutable,
@@ -494,8 +510,17 @@ async function launchInstalledGame() {
 }
 
 function setupAutoUpdater() {
+  const { launcherUpdateBaseUrl } = getConfig();
+
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
+
+  if (launcherUpdateBaseUrl) {
+    autoUpdater.setFeedURL({
+      provider: "generic",
+      url: launcherUpdateBaseUrl,
+    });
+  }
 
   autoUpdater.on("checking-for-update", () => {
     sendToRenderer("launcher:update-status", {
@@ -598,6 +623,12 @@ function registerIpc() {
     return { ok: true };
   });
 
+  ipcMain.handle("launcher:relaunch", async () => {
+    app.relaunch();
+    app.exit(0);
+    return { ok: true };
+  });
+
   ipcMain.handle("launcher:open-website", async () => {
     const { websiteUrl } = getConfig();
     if (!websiteUrl) {
@@ -610,6 +641,38 @@ function registerIpc() {
 
   ipcMain.handle("game:get-state", async () => {
     return getGameState();
+  });
+
+  ipcMain.handle("game:choose-install-directory", async () => {
+    const config = getConfig();
+    const preferences = await getUserPreferences(config);
+    const defaultPath = preferences.preferredInstallDir || config.installRoot;
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "Choose Game Install Folder",
+      buttonLabel: "Use Folder",
+      defaultPath,
+      properties: ["openDirectory", "createDirectory"],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { ok: false, canceled: true };
+    }
+
+    const nextPreferences = {
+      ...preferences,
+      preferredInstallDir: result.filePaths[0],
+    };
+
+    await writeJson(config.metadataPath, {
+      ...preferences,
+      ...nextPreferences,
+    });
+
+    return {
+      ok: true,
+      path: result.filePaths[0],
+    };
   });
 
   ipcMain.handle("game:check-for-updates", async () => {
@@ -645,6 +708,30 @@ function registerIpc() {
     await ensureDir(target);
     await shell.openPath(target);
     return { ok: true };
+  });
+
+  ipcMain.handle("game:uninstall", async () => {
+    const config = getConfig();
+    const metadata = await readJson(config.metadataPath, {});
+    const installDir = metadata.installDir;
+
+    if (installDir) {
+      await fsp.rm(installDir, { recursive: true, force: true });
+    }
+
+    await writeJson(config.metadataPath, {
+      preferredInstallDir: metadata.preferredInstallDir || installDir || config.installRoot,
+    });
+
+    sendToRenderer("game:install-status", {
+      phase: "complete",
+      message: "Game uninstalled.",
+    });
+
+    return {
+      ok: true,
+      state: await getGameState(),
+    };
   });
 }
 
