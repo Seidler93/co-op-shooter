@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, clipboard, dialog, ipcMain, shell } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { spawn } = require("child_process");
 const fs = require("fs");
@@ -102,6 +102,7 @@ function getConfig() {
     manifestUrl: process.env.LAUNCHER_GAME_MANIFEST_URL || "",
     launcherUpdateBaseUrl: process.env.LAUNCHER_UPDATE_BASE_URL || "",
     gameExecutable: process.env.LAUNCHER_GAME_EXECUTABLE || DEFAULT_GAME_EXECUTABLE,
+    localDataRoot,
     installRoot,
     metadataPath: path.join(localDataRoot, "game-install.json"),
     downloadsRoot: path.join(localDataRoot, "downloads"),
@@ -130,6 +131,23 @@ async function getUserPreferences(config) {
 async function getPreferredInstallRoot(config) {
   const metadata = await getUserPreferences(config);
   return metadata.preferredInstallDir || config.installRoot;
+}
+
+function normalizeInstallChoice(selectedDir) {
+  const folderName = path.basename(selectedDir).toLowerCase();
+  if (folderName === "co-op shooter" || folderName === "coopshooter" || folderName === "game-install") {
+    return selectedDir;
+  }
+
+  return path.join(selectedDir, "Co-op Shooter");
+}
+
+function isSafeInstallDeleteTarget(config, targetDir) {
+  const resolvedTarget = path.resolve(targetDir);
+  const resolvedDefaultInstall = path.resolve(config.installRoot);
+  const resolvedDataRoot = path.resolve(config.localDataRoot);
+
+  return resolvedTarget === resolvedDefaultInstall || resolvedTarget.startsWith(`${resolvedDataRoot}${path.sep}`);
 }
 
 async function writeJson(filePath, value) {
@@ -260,6 +278,8 @@ function normalizeManifest(manifest) {
   return {
     version: manifest.version,
     notes: manifest.notes || "",
+    noteSections: manifest.noteSections || manifest.changelog || [],
+    summary: manifest.summary || "",
     publishedAt: manifest.publishedAt || null,
     launchExecutable:
       platformRelease.launchExecutable ||
@@ -358,7 +378,35 @@ async function downloadFile(url, destinationPath) {
 
   const total = Number(response.headers.get("content-length") || 0);
   await ensureDir(path.dirname(destinationPath));
-  const buffer = Buffer.from(await response.arrayBuffer());
+  const chunks = [];
+  let transferred = 0;
+
+  if (response.body?.getReader) {
+    const reader = response.body.getReader();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+
+      const chunk = Buffer.from(value);
+      chunks.push(chunk);
+      transferred += chunk.length;
+
+      sendToRenderer("game:download-progress", {
+        transferred,
+        total,
+        percent: total ? Math.round((transferred / total) * 100) : null,
+      });
+    }
+  } else {
+    const fallbackBuffer = Buffer.from(await response.arrayBuffer());
+    chunks.push(fallbackBuffer);
+    transferred = fallbackBuffer.length;
+  }
+
+  const buffer = Buffer.concat(chunks);
 
   await fsp.writeFile(destinationPath, buffer);
 
@@ -639,6 +687,13 @@ function registerIpc() {
     return { ok: true };
   });
 
+  ipcMain.handle("launcher:open-data-directory", async () => {
+    const { localDataRoot } = getConfig();
+    await ensureDir(localDataRoot);
+    await shell.openPath(localDataRoot);
+    return { ok: true };
+  });
+
   ipcMain.handle("game:get-state", async () => {
     return getGameState();
   });
@@ -659,9 +714,10 @@ function registerIpc() {
       return { ok: false, canceled: true };
     }
 
+    const selectedInstallDir = normalizeInstallChoice(result.filePaths[0]);
     const nextPreferences = {
       ...preferences,
-      preferredInstallDir: result.filePaths[0],
+      preferredInstallDir: selectedInstallDir,
     };
 
     await writeJson(config.metadataPath, {
@@ -671,7 +727,7 @@ function registerIpc() {
 
     return {
       ok: true,
-      path: result.filePaths[0],
+      path: selectedInstallDir,
     };
   });
 
@@ -702,6 +758,30 @@ function registerIpc() {
     return launchInstalledGame();
   });
 
+  ipcMain.handle("game:repair", async () => {
+    try {
+      sendToRenderer("game:install-status", {
+        phase: "repairing",
+        message: "Repairing game install...",
+      });
+
+      return {
+        ok: true,
+        state: await installGame(),
+      };
+    } catch (error) {
+      sendToRenderer("game:install-status", {
+        phase: "error",
+        message: error.message,
+      });
+
+      return {
+        ok: false,
+        message: error.message,
+      };
+    }
+  });
+
   ipcMain.handle("game:open-install-directory", async () => {
     const state = await getGameState();
     const target = state.installed.installDir;
@@ -714,8 +794,11 @@ function registerIpc() {
     const config = getConfig();
     const metadata = await readJson(config.metadataPath, {});
     const installDir = metadata.installDir;
+    const executablePath = installDir
+      ? resolveExecutable(installDir, metadata.launchExecutable || config.gameExecutable)
+      : null;
 
-    if (installDir) {
+    if (installDir && (await pathExists(executablePath))) {
       await fsp.rm(installDir, { recursive: true, force: true });
     }
 
@@ -726,6 +809,63 @@ function registerIpc() {
     sendToRenderer("game:install-status", {
       phase: "complete",
       message: "Game uninstalled.",
+    });
+
+    return {
+      ok: true,
+      state: await getGameState(),
+    };
+  });
+
+  ipcMain.handle("game:copy-diagnostics", async (_event, context = {}) => {
+    const config = getConfig();
+    const state = await getGameState();
+    const diagnostics = {
+      generatedAt: new Date().toISOString(),
+      launcher: getLauncherInfo(),
+      game: {
+        installed: state.installed,
+        needsInstall: state.needsInstall,
+        updateAvailable: state.updateAvailable,
+        installInProgress: state.installInProgress,
+        updateError: state.updateError,
+        remote: state.remote
+          ? {
+              version: state.remote.version,
+              publishedAt: state.remote.publishedAt,
+              fileName: state.remote.fileName,
+            }
+          : null,
+      },
+      config: {
+        manifestConfigured: !!config.manifestUrl,
+        manifestUrl: config.manifestUrl,
+        updateFeedConfigured: !!config.launcherUpdateBaseUrl,
+        updateFeedUrl: config.launcherUpdateBaseUrl,
+        websiteUrl: config.websiteUrl,
+      },
+      context,
+    };
+
+    const text = JSON.stringify(diagnostics, null, 2);
+    clipboard.writeText(text);
+
+    return {
+      ok: true,
+      text,
+    };
+  });
+
+  ipcMain.handle("game:clear-download-cache", async () => {
+    const config = getConfig();
+    await fsp.rm(config.downloadsRoot, { recursive: true, force: true });
+    await fsp.rm(config.stagingRoot, { recursive: true, force: true });
+    await ensureDir(config.downloadsRoot);
+    await ensureDir(config.stagingRoot);
+
+    sendToRenderer("game:install-status", {
+      phase: "complete",
+      message: "Downloaded cache cleared.",
     });
 
     return {

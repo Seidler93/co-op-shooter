@@ -6,6 +6,8 @@ param(
   [string]$Channel = "stable",
   [string]$BaseUrl = "http://localhost:8080",
   [string]$ExecutableName = "CoopShooter.exe",
+  [string]$Summary = "Private beta Windows build.",
+  [string[]]$Notes = @("Packaged from local Windows build."),
   [switch]$Overwrite
 )
 
@@ -50,7 +52,14 @@ Compress-Archive -Path (Join-Path $BuildDir "*") -DestinationPath $artifactPath 
 $manifest = [ordered]@{
   version = $Version
   publishedAt = (Get-Date).ToUniversalTime().ToString("o")
-  notes = "Packaged from local Windows build."
+  summary = $Summary
+  notes = $Notes
+  noteSections = @(
+    [ordered]@{
+      title = "Build"
+      items = $Notes
+    }
+  )
   platforms = [ordered]@{
     win32 = [ordered]@{
       downloadUrl = "$BaseUrl/downloads/$artifactName"

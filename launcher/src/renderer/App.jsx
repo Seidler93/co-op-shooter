@@ -1,7 +1,9 @@
 import { useState } from "react";
 import AuthScreen from "./components/AuthScreen";
 import BetaKeyModal from "./components/BetaKeyModal";
+import ConfirmModal from "./components/ConfirmModal";
 import Dashboard from "./components/Dashboard";
+import SettingsModal from "./components/SettingsModal";
 import { useAuthState } from "./hooks/useAuthState";
 import { useGameRuntime } from "./hooks/useGameRuntime";
 import { useLauncherRuntime } from "./hooks/useLauncherRuntime";
@@ -15,6 +17,8 @@ export default function App() {
   });
 
   const [isBetaModalOpen, setBetaModalOpen] = useState(false);
+  const [isUninstallModalOpen, setUninstallModalOpen] = useState(false);
+  const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
 
   const isAuthenticated = !!authState.session;
 
@@ -52,6 +56,8 @@ export default function App() {
             gameRuntime={gameRuntime}
             onPrimaryAction={handlePrimaryAction}
             onOpenBetaModal={() => setBetaModalOpen(true)}
+            onRequestUninstall={() => setUninstallModalOpen(true)}
+            onOpenSettings={() => setSettingsModalOpen(true)}
           />
 
           <BetaKeyModal
@@ -64,6 +70,35 @@ export default function App() {
               if (result?.success) {
                 setBetaModalOpen(false);
               }
+            }}
+          />
+
+          <ConfirmModal
+            isOpen={isUninstallModalOpen}
+            busy={gameRuntime.busy}
+            danger
+            eyebrow="Uninstall Game"
+            title="Remove local game files?"
+            message="This removes the installed game build from your selected install folder. Your account, beta access, and preferred install folder will stay intact."
+            confirmLabel="Uninstall"
+            onClose={() => setUninstallModalOpen(false)}
+            onConfirm={async () => {
+              const result = await gameRuntime.uninstallGame();
+              if (result?.ok) {
+                setUninstallModalOpen(false);
+              }
+            }}
+          />
+
+          <SettingsModal
+            isOpen={isSettingsModalOpen}
+            authState={authState}
+            launcherRuntime={launcherRuntime}
+            gameRuntime={gameRuntime}
+            onClose={() => setSettingsModalOpen(false)}
+            onRequestUninstall={() => {
+              setSettingsModalOpen(false);
+              setUninstallModalOpen(true);
             }}
           />
         </>

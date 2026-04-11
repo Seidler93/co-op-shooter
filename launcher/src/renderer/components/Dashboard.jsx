@@ -1,7 +1,36 @@
 import { useEffect, useRef, useState } from "react";
 import UpdateBanner from "./UpdateBanner";
 
-function DashboardHeader({ authState, launcherRuntime, gameRuntime }) {
+function BetaAccessBadge({ active }) {
+  return (
+    <span className={active ? "beta-badge active" : "beta-badge locked"}>
+      <span className="beta-dot" />
+      {active ? "Beta Active" : "Beta Locked"}
+    </span>
+  );
+}
+
+function LauncherStatusFooter({ launcherRuntime }) {
+  const phase = launcherRuntime.launcherUpdate?.phase || "idle";
+  const labelMap = {
+    idle: "Launcher up to date",
+    checking: "Checking launcher update",
+    available: "Launcher update available",
+    downloading: launcherRuntime.launcherUpdate?.message || "Downloading launcher update",
+    downloaded: "Launcher update ready",
+    error: launcherRuntime.launcherUpdate?.message || "Launcher update check failed",
+    dev: "Launcher updates disabled in dev mode",
+  };
+
+  return (
+    <footer className={`launcher-status-footer ${phase}`}>
+      <span className="footer-status-dot" />
+      <span>{labelMap[phase] || launcherRuntime.launcherUpdate?.message || "Launcher status unavailable"}</span>
+    </footer>
+  );
+}
+
+function DashboardHeader({ authState, launcherRuntime, gameRuntime, onOpenSettings }) {
   const [isMenuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const profileName = authState.profile?.display_name || authState.session?.user?.email || "Pilot";
@@ -31,10 +60,10 @@ function DashboardHeader({ authState, launcherRuntime, gameRuntime }) {
         <div className="launcher-version-chip">Launcher v{launcherRuntime.launcherInfo?.version || "..."}</div>
         <div className="launcher-version-chip">Installed {installedVersion}</div>
         <div className="launcher-version-chip">Latest {latestVersion}</div>
+        <BetaAccessBadge active={authState.hasBetaAccess} />
         <button className="profile-button" onClick={() => setMenuOpen((value) => !value)} type="button">
           <span className="profile-meta">
             <strong>{profileName}</strong>
-            <span>{authState.hasBetaAccess ? "Beta access active" : "No beta access"}</span>
           </span>
           <span className="cog-icon" aria-hidden="true">
             {"\u2699"}
@@ -55,8 +84,8 @@ function DashboardHeader({ authState, launcherRuntime, gameRuntime }) {
               <span className="label">Install path</span>
               <strong>{installPath}</strong>
             </div>
-            <button className="menu-action" onClick={launcherRuntime.relaunch}>
-              Relaunch App
+            <button className="menu-action" onClick={onOpenSettings}>
+              Open Settings
             </button>
             <button className="menu-action" onClick={authState.signOut}>
               Logout
@@ -68,7 +97,7 @@ function DashboardHeader({ authState, launcherRuntime, gameRuntime }) {
   );
 }
 
-function PrimaryActionRail({ gameRuntime, authState, onPrimaryAction, onOpenBetaModal }) {
+function PrimaryActionRail({ gameRuntime, authState, onPrimaryAction, onOpenBetaModal, onRequestUninstall }) {
   const [isGameMenuOpen, setGameMenuOpen] = useState(false);
   const gameMenuRef = useRef(null);
   const installPath = gameRuntime.gameState?.installed?.installDir || "No install folder selected yet.";
@@ -86,8 +115,31 @@ function PrimaryActionRail({ gameRuntime, authState, onPrimaryAction, onOpenBeta
 
   return (
     <aside className="action-rail">
+      {gameRuntime.progressState.visible ? (
+        <div className="install-progress-card">
+          <div className="install-progress-meta">
+            <span>{gameRuntime.progressState.label}</span>
+            {!gameRuntime.progressState.indeterminate ? <strong>{gameRuntime.progressState.percent}%</strong> : null}
+          </div>
+          <div className="install-progress-track">
+            <span
+              className={gameRuntime.progressState.indeterminate ? "install-progress-bar indeterminate" : "install-progress-bar"}
+              style={
+                gameRuntime.progressState.indeterminate
+                  ? undefined
+                  : { width: `${Math.max(0, Math.min(100, gameRuntime.progressState.percent))}%` }
+              }
+            />
+          </div>
+        </div>
+      ) : null}
+
       <div className="game-action-row" ref={gameMenuRef}>
-        <button className="primary mega-button game-action-button" onClick={onPrimaryAction}>
+        <button
+          className="primary mega-button game-action-button"
+          disabled={!gameRuntime.canTriggerPrimary}
+          onClick={onPrimaryAction}
+        >
           {gameRuntime.primaryLabel}
         </button>
         <button
@@ -111,7 +163,13 @@ function PrimaryActionRail({ gameRuntime, authState, onPrimaryAction, onOpenBeta
             <button className="menu-action" onClick={gameRuntime.chooseInstallDirectory}>
               Change File Location
             </button>
-            <button className="menu-action danger" onClick={gameRuntime.uninstallGame}>
+            <button className="menu-action" onClick={gameRuntime.repairGame}>
+              Repair Install
+            </button>
+            <button className="menu-action" onClick={gameRuntime.copyDiagnostics}>
+              Copy Diagnostics
+            </button>
+            <button className="menu-action danger" onClick={onRequestUninstall}>
               Uninstall Game
             </button>
           </div>
@@ -170,13 +228,22 @@ function PatchNotesPanel({ gameRuntime }) {
   );
 }
 
-export default function Dashboard({ authState, launcherRuntime, gameRuntime, onPrimaryAction, onOpenBetaModal }) {
+export default function Dashboard({
+  authState,
+  launcherRuntime,
+  gameRuntime,
+  onPrimaryAction,
+  onOpenBetaModal,
+  onRequestUninstall,
+  onOpenSettings,
+}) {
   return (
     <section className="dashboard-shell">
       <DashboardHeader
         authState={authState}
         launcherRuntime={launcherRuntime}
         gameRuntime={gameRuntime}
+        onOpenSettings={onOpenSettings}
       />
 
       <UpdateBanner
@@ -193,6 +260,7 @@ export default function Dashboard({ authState, launcherRuntime, gameRuntime, onP
           authState={authState}
           onPrimaryAction={onPrimaryAction}
           onOpenBetaModal={onOpenBetaModal}
+          onRequestUninstall={onRequestUninstall}
         />
 
         <div className="dashboard-center">
@@ -200,6 +268,8 @@ export default function Dashboard({ authState, launcherRuntime, gameRuntime, onP
           <PatchNotesPanel gameRuntime={gameRuntime} />
         </div>
       </div>
+
+      <LauncherStatusFooter launcherRuntime={launcherRuntime} />
     </section>
   );
 }

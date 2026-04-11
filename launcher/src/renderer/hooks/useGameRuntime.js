@@ -6,11 +6,13 @@ const GAME_DESCRIPTION =
 export function useGameRuntime({ isAuthenticated, hasBetaAccess }) {
   const [gameState, setGameState] = useState(null);
   const [downloadProgress, setDownloadProgress] = useState(null);
+  const [installPhase, setInstallPhase] = useState("idle");
   const [statusMessage, setStatusMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const releaseInstall = window.desktop.game.onInstallStatus((payload) => {
+      setInstallPhase(payload.phase || "idle");
       setStatusMessage(payload.message);
     });
 
@@ -32,6 +34,18 @@ export function useGameRuntime({ isAuthenticated, hasBetaAccess }) {
   }, []);
 
   useEffect(() => {
+    if (installPhase !== "complete") {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setInstallPhase("idle");
+    }, 1800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [installPhase]);
+
+  useEffect(() => {
     if (!isAuthenticated) {
       return;
     }
@@ -47,6 +61,7 @@ export function useGameRuntime({ isAuthenticated, hasBetaAccess }) {
 
   async function installOrUpdateGame() {
     setBusy(true);
+    setInstallPhase("downloading");
     setDownloadProgress(null);
 
     try {
@@ -76,6 +91,7 @@ export function useGameRuntime({ isAuthenticated, hasBetaAccess }) {
 
   async function uninstallGame() {
     setBusy(true);
+    setInstallPhase("idle");
 
     try {
       const result = await window.desktop.game.uninstall();
@@ -92,6 +108,54 @@ export function useGameRuntime({ isAuthenticated, hasBetaAccess }) {
     }
   }
 
+  async function repairGame() {
+    setBusy(true);
+    setInstallPhase("repairing");
+    setDownloadProgress(null);
+
+    try {
+      const result = await window.desktop.game.repair();
+      if (!result.ok) {
+        setStatusMessage(result.message || "Repair failed.");
+        return result;
+      }
+
+      setGameState(result.state);
+      setStatusMessage("Repair complete.");
+      return result;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyDiagnostics() {
+    const result = await window.desktop.game.copyDiagnostics({
+      isAuthenticated,
+      hasBetaAccess,
+    });
+
+    if (!result.ok) {
+      setStatusMessage(result.message || "Could not copy diagnostics.");
+      return result;
+    }
+
+    setStatusMessage("Diagnostics copied to clipboard.");
+    return result;
+  }
+
+  async function clearDownloadCache() {
+    const result = await window.desktop.game.clearDownloadCache();
+
+    if (!result.ok) {
+      setStatusMessage(result.message || "Could not clear downloaded cache.");
+      return result;
+    }
+
+    setGameState(result.state);
+    setStatusMessage("Downloaded cache cleared.");
+    return result;
+  }
+
   const installState = gameState?.installed?.canLaunch ? "installed" : "not-installed";
   const primaryAction = gameState?.updateAvailable
     ? "update"
@@ -105,30 +169,82 @@ export function useGameRuntime({ isAuthenticated, hasBetaAccess }) {
     play: "Play",
   };
 
-  const patchNotes = gameState?.remote?.notes
-    ? gameState.remote.notes
+  const progressPercent = downloadProgress?.percent ?? null;
+  const phaseLabelMap = {
+    downloading: progressPercent != null ? `Downloading ${progressPercent}%` : "Downloading",
+    extracting: "Extracting",
+    installing: "Installing",
+    repairing: "Repairing",
+    complete: "Ready",
+  };
+
+  const primaryLabel = phaseLabelMap[installPhase] || primaryLabelMap[primaryAction];
+  const progressState = (() => {
+    if (installPhase === "downloading") {
+      return {
+        visible: true,
+        label: primaryLabel,
+        percent: progressPercent ?? 8,
+        indeterminate: progressPercent == null,
+      };
+    }
+
+    if (installPhase === "extracting") {
+      return { visible: true, label: "Extracting", percent: 72, indeterminate: false };
+    }
+
+    if (installPhase === "installing" || installPhase === "repairing") {
+      return { visible: true, label: primaryLabel, percent: 88, indeterminate: false };
+    }
+
+    if (installPhase === "complete") {
+      return { visible: true, label: "Ready", percent: 100, indeterminate: false };
+    }
+
+    return { visible: false, label: "", percent: 0, indeterminate: false };
+  })();
+
+  const patchNotes = (() => {
+    const remote = gameState?.remote;
+
+    if (Array.isArray(remote?.noteSections) && remote.noteSections.length > 0) {
+      return remote.noteSections.flatMap((section) => {
+        const items = Array.isArray(section.items) ? section.items : [];
+        return items.map((item) => `${section.title}: ${item}`);
+      });
+    }
+
+    if (Array.isArray(remote?.notes)) {
+      return remote.notes.map((note) => String(note).trim()).filter(Boolean);
+    }
+
+    if (remote?.notes) {
+      return String(remote.notes)
         .split(/\r?\n/)
         .map((note) => note.trim())
-        .filter(Boolean)
-    : [
-        "Automatic update checks on startup.",
-        "Invite-only beta access gating.",
-        "Launcher-aware install and play states.",
-      ];
+        .filter(Boolean);
+    }
+
+    return [
+      "Automatic update checks on startup.",
+      "Invite-only beta access gating.",
+      "Launcher-aware install and play states.",
+    ];
+  })();
 
   return useMemo(
     () => ({
       gameState,
       downloadProgress,
+      installPhase,
+      progressState,
       statusMessage,
       busy,
       installState,
       primaryAction,
-      primaryLabel: primaryLabelMap[primaryAction],
+      primaryLabel,
       canTriggerPrimary:
-        !busy &&
-        isAuthenticated &&
-        (primaryAction !== "download" || hasBetaAccess || !gameState?.config?.manifestConfigured),
+        !busy && isAuthenticated,
       gameDescription: GAME_DESCRIPTION,
       patchNotes,
       chooseInstallDirectory: async () => {
@@ -143,9 +259,25 @@ export function useGameRuntime({ isAuthenticated, hasBetaAccess }) {
       refreshState,
       installOrUpdateGame,
       launchGame,
+      repairGame,
       uninstallGame,
+      copyDiagnostics,
+      clearDownloadCache,
       openInstallDirectory: () => window.desktop.game.openInstallDirectory(),
     }),
-    [gameState, downloadProgress, statusMessage, busy, installState, primaryAction, isAuthenticated, hasBetaAccess, patchNotes]
+    [
+      gameState,
+      downloadProgress,
+      installPhase,
+      progressState,
+      statusMessage,
+      busy,
+      installState,
+      primaryAction,
+      primaryLabel,
+      isAuthenticated,
+      hasBetaAccess,
+      patchNotes,
+    ]
   );
 }

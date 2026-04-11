@@ -15,7 +15,7 @@ export function useLauncherRuntime() {
     async function bootstrap() {
       const info = await window.desktop.launcher.getInfo();
       setLauncherInfo(info);
-      await window.desktop.launcher.checkForUpdates();
+      await checkForUpdates();
     }
 
     bootstrap();
@@ -25,14 +25,27 @@ export function useLauncherRuntime() {
     };
   }, []);
 
+  async function checkForUpdates() {
+    const result = await window.desktop.launcher.checkForUpdates();
+    if (result?.message || result?.phase) {
+      setLauncherUpdate({
+        phase: result.phase || (result.ok ? "idle" : "error"),
+        message: result.message || (result.ok ? "Launcher is up to date." : "Launcher update check failed."),
+      });
+    }
+
+    return result;
+  }
+
   return useMemo(
     () => ({
       launcherInfo,
       launcherUpdate,
-      checkForUpdates: () => window.desktop.launcher.checkForUpdates(),
+      checkForUpdates,
       downloadUpdate: () => window.desktop.launcher.downloadUpdate(),
       quitAndInstall: () => window.desktop.launcher.quitAndInstall(),
       relaunch: () => window.desktop.launcher.relaunch(),
+      openDataDirectory: () => window.desktop.launcher.openDataDirectory(),
     }),
     [launcherInfo, launcherUpdate]
   );
