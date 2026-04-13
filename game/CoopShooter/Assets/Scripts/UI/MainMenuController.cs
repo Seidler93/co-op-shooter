@@ -60,13 +60,21 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
+    private void Awake()
+    {
+        EnsureMenuCursorState();
+    }
+
     protected virtual void Start()
     {
+        EnsureMenuCursorState();
         ShowMainPanel();
     }
 
     protected virtual void OnEnable()
     {
+        EnsureMenuCursorState();
+
         if (playButton != null)
             playButton.onClick.AddListener(Play);
 
@@ -506,5 +514,11 @@ public class MainMenuController : MonoBehaviour
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening) return "Offline";
         if (NetworkManager.Singleton.IsHost) return "Hosting party";
         return "In party";
+    }
+
+    private void EnsureMenuCursorState()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
     }
 }

@@ -22,6 +22,12 @@ public class NetworkPlayer : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
+    public NetworkVariable<int> Kills = new NetworkVariable<int>(
+        0,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
     private void Awake()
     {
         if (!cameraController)
@@ -90,6 +96,14 @@ public class NetworkPlayer : NetworkBehaviour
         Debug.Log($"[SERVER] {name} gained {amount} points. New score = {Score.Value}");
     }
 
+    public void AddKill()
+    {
+        if (!IsServer)
+            return;
+
+        Kills.Value += 1;
+    }
+
     public bool TrySpendScore(int amount)
     {
         if (!IsServer)
@@ -108,5 +122,14 @@ public class NetworkPlayer : NetworkBehaviour
             return;
 
         Score.Value += amount;
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        if (IsServer)
+        {
+            Score.Value = 0;
+            Kills.Value = 0;
+        }
     }
 }

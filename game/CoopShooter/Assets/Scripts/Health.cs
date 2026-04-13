@@ -119,6 +119,7 @@ public class Health : NetworkBehaviour
 
                     if (player != null)
                     {
+                        player.AddKill();
                         player.AddPoints(killPoints);
                     }
                 }

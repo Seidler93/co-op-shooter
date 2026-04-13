@@ -194,6 +194,20 @@ public class PartyManager : NetworkBehaviour
             : entry;
     }
 
+    public string GetDisplayNameForClient(ulong clientId)
+    {
+        for (int i = 0; i < Players.Count; i++)
+        {
+            if (TryParseEntry(Players[i].ToString(), out ulong entryClientId, out string displayName)
+                && entryClientId == clientId)
+            {
+                return displayName;
+            }
+        }
+
+        return GetFallbackName(clientId);
+    }
+
     private static bool TryParseEntry(string entry, out ulong clientId, out string displayName)
     {
         clientId = 0;

@@ -4,6 +4,8 @@ using UnityEngine.UI;
 
 public class GameOverUI : MonoBehaviour
 {
+    public bool IsVisible => root != null && root.activeSelf;
+
     [SerializeField] private GameObject root;
     [SerializeField] private Button restartButton;
     [SerializeField] private Button menuButton;
