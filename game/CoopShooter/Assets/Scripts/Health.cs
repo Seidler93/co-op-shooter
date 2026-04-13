@@ -29,6 +29,7 @@ public class Health : NetworkBehaviour
 
     public event Action<Health> Died;
     public event Action<int, int> HealthChanged;
+    public event Action<int, int> HealthValueChanged;
 
     private ulong lastAttackerClientId;
     private bool hasLastAttacker;
@@ -59,6 +60,7 @@ public class Health : NetworkBehaviour
 
     private void OnHpChanged(int oldValue, int newValue)
     {
+        HealthValueChanged?.Invoke(oldValue, newValue);
         HealthChanged?.Invoke(newValue, maxHP);
 
         if (logHealthChanges)

@@ -74,6 +74,7 @@
     <Compile Include="Assets\Scripts\ShopChest.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexJitter.cs" />
     <Compile Include="Assets\Scripts\UI\PartyManager.cs" />
+    <Compile Include="Assets\Scripts\Presentation\HealthAudioFeedback.cs" />
     <Compile Include="Assets\Scripts\Weapons\WeaponShooter.cs" />
     <Compile Include="Assets\Scripts\PlayerShopper.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_UiFrameRateCounter.cs" />
@@ -134,6 +135,7 @@
     <Compile Include="Assets\Scripts\Weapons\WeaponTracer.cs" />
     <Compile Include="Assets\Scripts\UI\RelayMenuController.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\ObjectSpin.cs" />
+    <Compile Include="Assets\Scripts\Presentation\LevelPresentationHooks.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_PhoneNumberValidator.cs" />
     <Compile Include="Assets\JMO Assets\WarFX\Demo\Assets\WFX_Demo_New.cs" />
     <Compile Include="Assets\JMO Assets\WarFX\Demo\Assets\CFX_Demo_Translate.cs" />

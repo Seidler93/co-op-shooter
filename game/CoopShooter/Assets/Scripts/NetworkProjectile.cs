@@ -293,7 +293,10 @@ public class NetworkProjectile : NetworkBehaviour
         }
         else
         {
-            var fx = Instantiate(prefab, pos, rot);
+            Transform worldVfxRoot = LevelPresentationHooks.Instance != null
+                ? LevelPresentationHooks.Instance.WorldVfxRoot
+                : null;
+            var fx = Instantiate(prefab, pos, rot, worldVfxRoot);
             Destroy(fx, Mathf.Max(0.1f, worldFxLifetime));
         }
     }

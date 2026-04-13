@@ -129,6 +129,7 @@ GameObject:
   - component: {fileID: 6313848371479099143}
   - component: {fileID: 8068730134787199996}
   - component: {fileID: 4970575863587720021}
+  - component: {fileID: 7899893111777680948}
   m_Layer: 8
   m_Name: Enemy
   m_TagString: Untagged
@@ -164,7 +165,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2572647335
+  GlobalObjectIdHash: 389566960
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -265,6 +266,9 @@ MonoBehaviour:
   killPoints: 100
   logHealthChanges: 1
   CurrentHP:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
     m_InternalValue: 0
 --- !u!114 &8068730134787199996
 MonoBehaviour:
@@ -305,3 +309,29 @@ MonoBehaviour:
   rayStartHeight: 3
   rayDistance: 10
   extraLift: 0.02
+--- !u!114 &7899893111777680948
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3258939327075616521}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7b3bf0f89873354786b482dca870616, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HealthAudioFeedback
+  health: {fileID: 6313848371479099143}
+  audioSource: {fileID: 0}
+  hitClips:
+  - {fileID: 8300000, guid: 2a295373a10441545bcaf619b61bea94, type: 3}
+  - {fileID: 8300000, guid: 8ba1ce15e8593064aa781b941381f053, type: 3}
+  - {fileID: 8300000, guid: 05d0536a3eefc80438f95f9662331f52, type: 3}
+  hitVolume: 1
+  hitPitchMin: 0.96
+  hitPitchMax: 1.04
+  minHitInterval: 0.05
+  deathClips: []
+  deathVolume: 1
+  deathPitchMin: 0.96
+  deathPitchMax: 1.04
