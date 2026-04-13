@@ -46,6 +46,18 @@ export function useGameRuntime({ isAuthenticated, hasBetaAccess }) {
   }, [installPhase]);
 
   useEffect(() => {
+    if (statusMessage !== "Launching game...") {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setStatusMessage("");
+    }, 2500);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [statusMessage]);
+
+  useEffect(() => {
     if (!isAuthenticated) {
       return;
     }
@@ -78,8 +90,8 @@ export function useGameRuntime({ isAuthenticated, hasBetaAccess }) {
     }
   }
 
-  async function launchGame() {
-    const result = await window.desktop.game.launch();
+  async function launchGame(context = {}) {
+    const result = await window.desktop.game.launch(context);
     if (!result.ok) {
       setStatusMessage(result.message || "Launch failed.");
       return result;

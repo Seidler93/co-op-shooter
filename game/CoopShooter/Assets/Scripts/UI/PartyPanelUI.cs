@@ -7,7 +7,7 @@ public class PartyPanelUI : MonoBehaviour
     [SerializeField] private TMP_Text partyStatusText;
     [SerializeField] private Transform partyMemberListRoot;
     [SerializeField] private PartyMemberCardUI partyMemberCardPrefab;
-    [SerializeField] private string fallbackPlayerName = "You";
+    [SerializeField] private string fallbackPlayerName = "Player";
     [SerializeField] private int playerLevel = 1;
 
     private bool isHookedToParty;
@@ -106,13 +106,13 @@ public class PartyPanelUI : MonoBehaviour
             PartyManager.Instance.Players == null ||
             PartyManager.Instance.Players.Count == 0)
         {
-            CreatePartyCard(fallbackPlayerName, playerLevel, localMemberStatus);
+            CreatePartyCard(GetLocalPlayerName(), playerLevel, localMemberStatus);
             return;
         }
 
         for (int i = 0; i < PartyManager.Instance.Players.Count; i++)
         {
-            string playerName = PartyManager.Instance.Players[i].ToString();
+            string playerName = PartyManager.GetDisplayNameFromEntry(PartyManager.Instance.Players[i].ToString());
             CreatePartyCard(playerName, playerLevel, string.Empty);
         }
     }
@@ -139,5 +139,20 @@ public class PartyPanelUI : MonoBehaviour
             : 1;
 
         return count == 1 ? "Party open" : $"{count} players in party";
+    }
+
+    private string GetLocalPlayerName()
+    {
+        FriendsService service = FriendsService.Instance;
+        if (service == null)
+            return fallbackPlayerName;
+
+        if (!string.IsNullOrWhiteSpace(service.CurrentDisplayName))
+            return service.CurrentDisplayName;
+
+        if (!string.IsNullOrWhiteSpace(service.CurrentUsername))
+            return service.CurrentUsername;
+
+        return fallbackPlayerName;
     }
 }

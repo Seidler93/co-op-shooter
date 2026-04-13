@@ -233,12 +233,13 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   lifetime: 2.5
   damage: 25
+  canDamagePlayers: 0
   speed: 200
   sweepRadius: 0.06
   hitMask:
     serializedVersion: 2
     m_Bits: 257
-  worldImpactPrefab: {fileID: 0}
-  enemyImpactPrefab: {fileID: 0}
+  worldImpactPrefab: {fileID: 100002, guid: 99c73c92ac40473459640b165473206f, type: 3}
+  enemyImpactPrefab: {fileID: 100002, guid: 3b1513bcb86426b4795879be6a128ed7, type: 3}
   enemyFxLifetime: 1.5
   worldFxLifetime: 1.5

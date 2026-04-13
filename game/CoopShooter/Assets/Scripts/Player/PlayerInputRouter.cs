@@ -41,6 +41,15 @@ public class PlayerInputRouter : MonoBehaviour
 
     private void Update()
     {
+        if (playerState != null && playerState.IsInputBlocked)
+        {
+            playerMovement?.SetMoveInput(Vector2.zero);
+            playerState.SetAiming(false);
+            cameraController?.SetAiming(false);
+            weaponShooter?.SetFireInput(false, false);
+            return;
+        }
+
         Vector2 moveInput = moveAction.ReadValue<Vector2>();
         playerMovement?.SetMoveInput(moveInput);
 

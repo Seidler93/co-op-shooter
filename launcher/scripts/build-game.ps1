@@ -81,7 +81,18 @@ $exit = $LASTEXITCODE
 # -----------------------------
 # Verify Build Output
 # -----------------------------
-if (-not (Test-Path $exePath)) {
+$exeReady = $false
+
+for ($attempt = 0; $attempt -lt 10; $attempt++) {
+  if (Test-Path -LiteralPath $exePath) {
+    $exeReady = $true
+    break
+  }
+
+  Start-Sleep -Milliseconds 500
+}
+
+if (-not $exeReady) {
 
   Write-Host ""
   Write-Host "Unity build failed."

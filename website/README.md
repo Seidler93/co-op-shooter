@@ -15,12 +15,34 @@ This folder is a simple static download page intended for Cloudflare Pages.
 
 ## Deploy
 
-Upload this folder to Cloudflare Pages as a static site.
+Deploy this folder with Cloudflare Wrangler:
+
+```powershell
+cd website
+npx wrangler deploy
+```
+
+If Wrangler asks you to log in, run:
+
+```powershell
+npx wrangler login
+```
 
 Then update:
 
 - `Download Launcher` link in `index.html`
 - support/contact text if you want a Discord or email listed
+
+## Launcher Update Feed
+
+After building a new launcher release, upload the update files to R2:
+
+```powershell
+cd ..\launcher
+npm run publish:launcher:r2
+```
+
+This uploads `latest.yml`, the current installer, and its `.blockmap` to the `projectz` R2 bucket root used by `LAUNCHER_UPDATE_BASE_URL`.
 
 ## Beta flow
 

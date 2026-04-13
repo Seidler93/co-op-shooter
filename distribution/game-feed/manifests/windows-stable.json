@@ -1,33 +1,33 @@
 ﻿{
-    "version":  "0.1.0",
-    "publishedAt":  "2026-04-10T04:43:40.3433158Z",
-    "summary":  "Private beta Windows build for the first closed tester group.",
+    "version":  "0.1.2",
+    "publishedAt":  "2026-04-13T03:27:08.0277359Z",
+    "summary":  "Private beta Windows build with social invites and lobby flow updates.",
     "notes":  [
-                  "Packaged from local Windows build.",
-                  "Launcher install, repair, and update flow ready for beta testing.",
-                  "Invite-only beta access remains required before download."
+                  "Added friends and lobby invite support for beta testers.",
+                  "Invites can create a Relay lobby automatically before the host starts the match.",
+                  "Improved menu controller cleanup for the new social panel flow."
               ],
     "noteSections":  [
                          {
-                             "title":  "Launcher",
+                             "title":  "Social",
                              "items":  [
-                                           "Added managed install/update support.",
-                                           "Added local repair and diagnostics actions."
+                                           "Added Supabase-backed friends and pending lobby invites.",
+                                           "Added launcher-to-game identity handoff for player profiles."
                                        ]
                          },
                          {
                              "title":  "Known Beta Notes",
                              "items":  [
-                                           "Gameplay balance and final art are still in progress.",
-                                           "Please report install or launch issues with copied diagnostics."
+                                           "Players should launch the game through the signed-in launcher for social features.",
+                                           "Gameplay balance and final art are still in progress."
                                        ]
                          }
                      ],
     "platforms":  {
                       "win32":  {
-                                    "downloadUrl":  "https://pub-72a26ee483c14eb6b975bbb15ed9ba81.r2.dev/game-feed/downloads/coop-shooter-0.1.0-win64.zip",
+                                    "downloadUrl":  "https://pub-72a26ee483c14eb6b975bbb15ed9ba81.r2.dev/game-feed/downloads/coop-shooter-0.1.2-win64.zip",
                                     "launchExecutable":  "CoopShooter.exe",
-                                    "fileName":  "coop-shooter-0.1.0-win64.zip"
+                                    "fileName":  "coop-shooter-0.1.2-win64.zip"
                                 }
                   }
 }

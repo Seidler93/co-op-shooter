@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld("desktop", {
     getState: () => ipcRenderer.invoke("game:get-state"),
     checkForUpdates: () => ipcRenderer.invoke("game:check-for-updates"),
     installOrUpdate: () => ipcRenderer.invoke("game:install-or-update"),
-    launch: () => ipcRenderer.invoke("game:launch"),
+    launch: (context) => ipcRenderer.invoke("game:launch", context),
     repair: () => ipcRenderer.invoke("game:repair"),
     chooseInstallDirectory: () => ipcRenderer.invoke("game:choose-install-directory"),
     openInstallDirectory: () => ipcRenderer.invoke("game:open-install-directory"),

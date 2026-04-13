@@ -41,7 +41,10 @@ function LauncherStatusFooter({ launcherRuntime, gameRuntime }) {
 function DashboardHeader({ authState, gameRuntime, onOpenSettings }) {
   const [isMenuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
-  const profileName = authState.profile?.display_name || authState.session?.user?.email || "Pilot";
+  const profileName =
+    authState.profile?.display_name ||
+    authState.session?.user?.email?.split("@")[0] ||
+    "Pilot";
   const installPath = gameRuntime.gameState?.installed?.installDir || "Not selected yet";
 
   useEffect(() => {
@@ -100,10 +103,18 @@ function DashboardHeader({ authState, gameRuntime, onOpenSettings }) {
   );
 }
 
-function PrimaryActionRail({ gameRuntime, authState, onPrimaryAction, onOpenBetaModal, onRequestUninstall }) {
+function PrimaryActionRail({
+  gameRuntime,
+  authState,
+  launcherPlayBlockMessage,
+  onPrimaryAction,
+  onOpenBetaModal,
+  onRequestUninstall,
+}) {
   const [isGameMenuOpen, setGameMenuOpen] = useState(false);
   const gameMenuRef = useRef(null);
   const installPath = gameRuntime.gameState?.installed?.installDir || "No install folder selected yet.";
+  const isPlayBlockedByLauncher = gameRuntime.primaryAction === "play" && !!launcherPlayBlockMessage;
 
   useEffect(() => {
     function handlePointer(event) {
@@ -124,6 +135,9 @@ function PrimaryActionRail({ gameRuntime, authState, onPrimaryAction, onOpenBeta
             <span>{gameRuntime.progressState.label}</span>
             {!gameRuntime.progressState.indeterminate ? <strong>{gameRuntime.progressState.percent}%</strong> : null}
           </div>
+          {gameRuntime.statusMessage ? (
+            <p className="install-progress-message">{gameRuntime.statusMessage}</p>
+          ) : null}
           <div className="install-progress-track">
             <span
               className={gameRuntime.progressState.indeterminate ? "install-progress-bar indeterminate" : "install-progress-bar"}
@@ -140,7 +154,7 @@ function PrimaryActionRail({ gameRuntime, authState, onPrimaryAction, onOpenBeta
       <div className="game-action-row" ref={gameMenuRef}>
         <button
           className="primary mega-button game-action-button"
-          disabled={!gameRuntime.canTriggerPrimary}
+          disabled={!gameRuntime.canTriggerPrimary || isPlayBlockedByLauncher}
           onClick={onPrimaryAction}
         >
           {gameRuntime.primaryLabel}
@@ -179,6 +193,10 @@ function PrimaryActionRail({ gameRuntime, authState, onPrimaryAction, onOpenBeta
         ) : null}
       </div>
 
+      {isPlayBlockedByLauncher ? (
+        <p className="launcher-play-block-message">{launcherPlayBlockMessage}</p>
+      ) : null}
+
       {!authState.hasBetaAccess ? (
         <button className="text-button" onClick={onOpenBetaModal}>
           Enter beta key instead
@@ -188,31 +206,30 @@ function PrimaryActionRail({ gameRuntime, authState, onPrimaryAction, onOpenBeta
   );
 }
 
-function GameInfoPanel({ gameRuntime }) {
+function OperationTab() {
   return (
-    <section className="project-hero panel">
+    <div className="operation-panel">
       <div className="project-hero-background" />
-      <div className="project-hero-content">
+      <div className="operation-panel-content">
         <p className="eyebrow">Upcoming Intel</p>
         <h2>Operation feed pending</h2>
         <p>
           Reserved for key art, mode previews, event callouts, and beta announcements once the game visuals are ready.
         </p>
       </div>
-
-    </section>
+    </div>
   );
 }
 
-function PatchNotesPanel({ gameRuntime }) {
+function PatchNotesTab({ gameRuntime }) {
   return (
-    <section className="dashboard-panel panel">
+    <div className="patch-panel">
       <div className="panel-header spread">
         <div>
           <p className="eyebrow">Patch Notes</p>
           <h2>Latest build notes</h2>
         </div>
-        <button className="secondary" onClick={gameRuntime.refreshState}>
+        <button className="secondary" onClick={gameRuntime.refreshState} type="button">
           Refresh
         </button>
       </div>
@@ -225,8 +242,43 @@ function PatchNotesPanel({ gameRuntime }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
 
-      {gameRuntime.statusMessage ? <div className="notice">{gameRuntime.statusMessage}</div> : null}
+function DashboardContentCard({ gameRuntime }) {
+  const [activeTab, setActiveTab] = useState("operation");
+
+  return (
+    <section className="dashboard-content-card panel">
+      <div className="content-card-tabs" role="tablist" aria-label="Launcher information">
+        <button
+          aria-selected={activeTab === "operation"}
+          className={activeTab === "operation" ? "content-tab active" : "content-tab"}
+          onClick={() => setActiveTab("operation")}
+          role="tab"
+          type="button"
+        >
+          Operation
+        </button>
+        <button
+          aria-selected={activeTab === "patch-notes"}
+          className={activeTab === "patch-notes" ? "content-tab active" : "content-tab"}
+          onClick={() => setActiveTab("patch-notes")}
+          role="tab"
+          type="button"
+        >
+          Patch Notes
+        </button>
+      </div>
+
+      <div className="content-card-body">
+        {activeTab === "operation" ? (
+          <OperationTab />
+        ) : (
+          <PatchNotesTab gameRuntime={gameRuntime} />
+        )}
+      </div>
     </section>
   );
 }
@@ -235,6 +287,7 @@ export default function Dashboard({
   authState,
   launcherRuntime,
   gameRuntime,
+  launcherPlayBlockMessage,
   onPrimaryAction,
   onOpenBetaModal,
   onRequestUninstall,
@@ -260,14 +313,14 @@ export default function Dashboard({
         <PrimaryActionRail
           gameRuntime={gameRuntime}
           authState={authState}
+          launcherPlayBlockMessage={launcherPlayBlockMessage}
           onPrimaryAction={onPrimaryAction}
           onOpenBetaModal={onOpenBetaModal}
           onRequestUninstall={onRequestUninstall}
         />
 
         <div className="dashboard-center">
-          <GameInfoPanel gameRuntime={gameRuntime} />
-          <PatchNotesPanel gameRuntime={gameRuntime} />
+          <DashboardContentCard gameRuntime={gameRuntime} />
         </div>
       </div>
 

@@ -503,7 +503,7 @@ button:disabled {
   display: grid;
   grid-template-columns: minmax(210px, 260px) minmax(0, 1fr);
   gap: 18px;
-  align-items: end;
+  align-items: stretch;
   overflow: hidden;
 }
 
@@ -569,11 +569,9 @@ button:disabled {
 .dashboard-center {
   position: relative;
   z-index: 1;
-  display: grid;
+  display: flex;
   min-height: 0;
   height: 100%;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 0.9fr);
-  gap: 14px;
 }
 
 .dashboard-panel,
@@ -614,6 +612,96 @@ button:disabled {
   font-size: 0.98rem;
 }
 
+.dashboard-content-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  background:
+    linear-gradient(90deg, rgba(13, 15, 20, 0.94), rgba(13, 15, 20, 0.7) 56%, rgba(13, 15, 20, 0.9)),
+    linear-gradient(135deg, rgba(77, 124, 255, 0.12), rgba(124, 245, 163, 0.04)),
+    #151922;
+}
+
+.content-card-tabs {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px 0;
+}
+
+.content-tab {
+  min-height: 36px;
+  padding: 9px 14px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+}
+
+.content-tab.active {
+  color: var(--text);
+  background: rgba(77, 124, 255, 0.18);
+  border-color: rgba(77, 124, 255, 0.36);
+  box-shadow: inset 0 -1px 0 rgba(124, 245, 163, 0.28);
+}
+
+.content-card-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 14px;
+}
+
+.operation-panel {
+  position: relative;
+  display: flex;
+  min-height: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: rgba(7, 9, 13, 0.34);
+}
+
+.operation-panel-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: min(560px, 82%);
+  min-height: 100%;
+  padding: clamp(20px, 5vw, 46px);
+}
+
+.operation-panel-content h2 {
+  margin-bottom: 12px;
+  font-size: clamp(2rem, 4.2vw, 4.2rem);
+  letter-spacing: 0.16em;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.operation-panel-content p {
+  max-width: 58ch;
+  color: var(--muted);
+}
+
+.patch-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.patch-panel .patch-notes-list {
+  flex: 1;
+}
+
 .patch-notes-list {
   display: grid;
   gap: 8px;
@@ -652,6 +740,8 @@ button:disabled {
   flex-direction: column;
   justify-content: flex-end;
   gap: 12px;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -696,9 +786,23 @@ button:disabled {
   backdrop-filter: none;
 }
 
+.launcher-play-block-message {
+  margin: -4px 0 0;
+  color: #ffd7ac;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
 .install-progress-card {
   display: grid;
   gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
   padding: 10px 12px;
   border-radius: var(--radius-md);
   background: rgba(28, 34, 48, 0.9);
@@ -711,6 +815,7 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  min-width: 0;
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 700;
@@ -718,8 +823,24 @@ button:disabled {
   text-transform: uppercase;
 }
 
+.install-progress-meta span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .install-progress-meta strong {
   color: var(--text);
+}
+
+.install-progress-message {
+  margin: -2px 0 0;
+  color: var(--muted-deep);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .install-progress-track {
@@ -977,7 +1098,7 @@ button:disabled {
   }
 
   .dashboard-center {
-    grid-template-rows: auto;
+    height: auto;
   }
 
   .action-rail {
@@ -1002,8 +1123,17 @@ button:disabled {
   .auth-hero,
   .auth-card,
   .dashboard-panel,
+  .dashboard-content-card,
   .action-rail {
     padding: 20px;
+  }
+
+  .dashboard-content-card {
+    padding: 0;
+  }
+
+  .operation-panel-content {
+    width: 100%;
   }
 
   .dashboard-header,

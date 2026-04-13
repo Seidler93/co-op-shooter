@@ -26,6 +26,7 @@ public class ShopUI : MonoBehaviour
     [SerializeField] private TMP_Text fireRateLabel;
 
     private PlayerShopper currentShopper;
+    private PlayerController currentPlayerController;
 
     private void Awake()
     {
@@ -55,6 +56,7 @@ public class ShopUI : MonoBehaviour
     public void Open(PlayerShopper shopper)
     {
         currentShopper = shopper;
+        currentPlayerController = shopper != null ? shopper.GetComponent<PlayerController>() : null;
 
         if (shopPanel != null)
             shopPanel.SetActive(true);
@@ -62,13 +64,17 @@ public class ShopUI : MonoBehaviour
         RefreshPoints();
         ShowMessage("", true);
 
+        currentPlayerController?.SetGameplayInputBlocked(true);
+
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
     }
 
     public void Close()
     {
+        currentPlayerController?.SetGameplayInputBlocked(false);
         currentShopper = null;
+        currentPlayerController = null;
 
         if (shopPanel != null)
             shopPanel.SetActive(false);
@@ -121,6 +127,13 @@ public class ShopUI : MonoBehaviour
 
     private void UpdateLabels()
     {
+        int damageCost = currentShopper != null
+            ? currentShopper.GetCurrentCost(ShopItemType.DamageUpgrade)
+            : ShopCatalog.GetCost(ShopItemType.DamageUpgrade);
+        int fireRateCost = currentShopper != null
+            ? currentShopper.GetCurrentCost(ShopItemType.FireRateUpgrade)
+            : ShopCatalog.GetCost(ShopItemType.FireRateUpgrade);
+
         if (ammoLabel != null)
             ammoLabel.text = $"Ammo ({ShopCatalog.GetCost(ShopItemType.Ammo)})";
 
@@ -128,10 +141,10 @@ public class ShopUI : MonoBehaviour
             healthLabel.text = $"Health ({ShopCatalog.GetCost(ShopItemType.Health)})";
 
         if (damageLabel != null)
-            damageLabel.text = $"Damage Upgrade ({ShopCatalog.GetCost(ShopItemType.DamageUpgrade)})";
+            damageLabel.text = $"Damage Upgrade ({damageCost})";
 
         if (fireRateLabel != null)
-            fireRateLabel.text = $"Fire Rate Upgrade ({ShopCatalog.GetCost(ShopItemType.FireRateUpgrade)})";
+            fireRateLabel.text = $"Fire Rate Upgrade ({fireRateCost})";
     }
 
     private void Buy(ShopItemType itemType)

@@ -79,6 +79,11 @@ body::before {
 }
 
 .hero-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 28px;
+  min-height: 100%;
   padding: 28px;
   background: var(--panel);
 }
@@ -165,6 +170,25 @@ p {
   color: var(--muted);
   display: grid;
   gap: 10px;
+}
+
+.version-stamp {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: rgba(160, 167, 184, 0.68);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.version-stamp span {
+  border: 1px solid rgba(160, 167, 184, 0.12);
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .grid {

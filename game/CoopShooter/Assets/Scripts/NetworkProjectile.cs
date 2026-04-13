@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -10,6 +11,7 @@ public class NetworkProjectile : NetworkBehaviour
 
     [Header("Damage")]
     [SerializeField] private int damage;
+    [SerializeField] private bool canDamagePlayers = false;
 
     [Header("Motion")]
     [Tooltip("Units per second (you said 200).")]
@@ -78,6 +80,8 @@ public class NetworkProjectile : NetworkBehaviour
             hasShooter = false;
             shooterClientId = 0;
         }
+
+        damage = damageAmount;
     }
 
     private void FixedUpdate()
@@ -167,13 +171,18 @@ public class NetworkProjectile : NetworkBehaviour
         var hitNo = col.GetComponentInParent<NetworkObject>();
         if (hitNo != null) hitNetId = hitNo.NetworkObjectId;
 
-        // Tell all clients to spawn the impact VFX once
+        // Tell observing clients to spawn the impact VFX once.
+        // The shooter already gets an immediate predicted local impact from WeaponShooter.
         SpawnImpactClientRpc(
             hitEnemy ? ImpactKind.Enemy : ImpactKind.World,
             hit.point,
             hit.normal,
-            hitEnemy ? hitNetId : 0
+            hitEnemy ? hitNetId : 0,
+            BuildImpactClientRpcParams()
         );
+
+        if (ShouldBlockPlayerDamage(col))
+            return;
 
         // Damage (server only)
         var hp = col.GetComponentInParent<Health>();
@@ -191,8 +200,45 @@ public class NetworkProjectile : NetworkBehaviour
         }
     }
 
+    private bool ShouldBlockPlayerDamage(Collider col)
+    {
+        if (canDamagePlayers)
+            return false;
+
+        PlayerHealth playerHealth = col.GetComponentInParent<PlayerHealth>();
+        if (playerHealth == null)
+            return false;
+
+        if (hasShooter && playerHealth.OwnerClientId == shooterClientId)
+            return true;
+
+        Debug.Log($"[SERVER] Friendly fire blocked on {playerHealth.name}.");
+        return true;
+    }
+
+    private ClientRpcParams BuildImpactClientRpcParams()
+    {
+        if (!hasShooter || NetworkManager.Singleton == null)
+            return default;
+
+        var targetClientIds = new List<ulong>();
+        foreach (ulong clientId in NetworkManager.Singleton.ConnectedClientsIds)
+        {
+            if (clientId != shooterClientId)
+                targetClientIds.Add(clientId);
+        }
+
+        return new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams
+            {
+                TargetClientIds = targetClientIds
+            }
+        };
+    }
+
     [ClientRpc]
-    private void SpawnImpactClientRpc(ImpactKind kind, Vector3 pos, Vector3 normal, ulong hitNetId)
+    private void SpawnImpactClientRpc(ImpactKind kind, Vector3 pos, Vector3 normal, ulong hitNetId, ClientRpcParams rpcParams = default)
     {
         GameObject prefab = (kind == ImpactKind.Enemy) ? enemyImpactPrefab : worldImpactPrefab;
         if (!prefab) return;
