@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -10,6 +12,7 @@ public class NetworkProjectile : NetworkBehaviour
 
     [Header("Damage")]
     [SerializeField] private int damage;
+    [SerializeField] private bool canDamagePlayers = false;
 
     [Header("Motion")]
     [Tooltip("Units per second (you said 200).")]
@@ -78,6 +81,8 @@ public class NetworkProjectile : NetworkBehaviour
             hasShooter = false;
             shooterClientId = 0;
         }
+
+        damage = damageAmount;
     }
 
     private void FixedUpdate()
@@ -112,16 +117,8 @@ public class NetworkProjectile : NetworkBehaviour
         {
             Vector3 sweepDir = delta / dist;
 
-            if (Physics.SphereCast(lastPos, sweepRadius, sweepDir, out RaycastHit hit, dist, hitMask, QueryTriggerInteraction.Ignore))
+            if (TryGetFirstValidHit(lastPos, sweepDir, dist, out RaycastHit hit))
             {
-                if (ShouldIgnoreHit(hit.collider))
-                {
-                    // If we ignore (ex: shooter), keep moving this step
-                    transform.position = nextPos;
-                    lastPos = nextPos;
-                    return;
-                }
-
                 hasHit = true;      // set first to prevent double-trigger
                 HandleImpact(hit);  // VFX + damage (server authoritative)
                 SafeDespawn();
@@ -132,6 +129,48 @@ public class NetworkProjectile : NetworkBehaviour
         // No hit: move forward deterministically
         transform.position = nextPos;
         lastPos = nextPos;
+    }
+
+    public bool ResolveImmediateImpact(float distance)
+    {
+        if (!IsServer) return false;
+        if (hasHit) return false;
+        if (distance <= 0.0001f) return false;
+
+        if (!TryGetFirstValidHit(transform.position, dir, distance, out RaycastHit hit))
+            return false;
+
+        hasHit = true;
+        HandleImpact(hit);
+        SafeDespawn();
+        return true;
+    }
+
+    private bool TryGetFirstValidHit(Vector3 origin, Vector3 direction, float distance, out RaycastHit validHit)
+    {
+        RaycastHit[] hits = Physics.SphereCastAll(
+            origin,
+            sweepRadius,
+            direction,
+            distance,
+            hitMask,
+            QueryTriggerInteraction.Ignore
+        );
+
+        foreach (RaycastHit hit in hits.OrderBy(entry => entry.distance))
+        {
+            if (hit.collider == null)
+                continue;
+
+            if (ShouldIgnoreHit(hit.collider))
+                continue;
+
+            validHit = hit;
+            return true;
+        }
+
+        validHit = default;
+        return false;
     }
 
     private bool ShouldIgnoreHit(Collider col)
@@ -167,13 +206,18 @@ public class NetworkProjectile : NetworkBehaviour
         var hitNo = col.GetComponentInParent<NetworkObject>();
         if (hitNo != null) hitNetId = hitNo.NetworkObjectId;
 
-        // Tell all clients to spawn the impact VFX once
+        // Tell observing clients to spawn the impact VFX once.
+        // The shooter already gets an immediate predicted local impact from WeaponShooter.
         SpawnImpactClientRpc(
             hitEnemy ? ImpactKind.Enemy : ImpactKind.World,
             hit.point,
             hit.normal,
-            hitEnemy ? hitNetId : 0
+            hitEnemy ? hitNetId : 0,
+            BuildImpactClientRpcParams()
         );
+
+        if (ShouldBlockPlayerDamage(col))
+            return;
 
         // Damage (server only)
         var hp = col.GetComponentInParent<Health>();
@@ -191,8 +235,45 @@ public class NetworkProjectile : NetworkBehaviour
         }
     }
 
+    private bool ShouldBlockPlayerDamage(Collider col)
+    {
+        if (canDamagePlayers)
+            return false;
+
+        PlayerHealth playerHealth = col.GetComponentInParent<PlayerHealth>();
+        if (playerHealth == null)
+            return false;
+
+        if (hasShooter && playerHealth.OwnerClientId == shooterClientId)
+            return true;
+
+        Debug.Log($"[SERVER] Friendly fire blocked on {playerHealth.name}.");
+        return true;
+    }
+
+    private ClientRpcParams BuildImpactClientRpcParams()
+    {
+        if (!hasShooter || NetworkManager.Singleton == null)
+            return default;
+
+        var targetClientIds = new List<ulong>();
+        foreach (ulong clientId in NetworkManager.Singleton.ConnectedClientsIds)
+        {
+            if (clientId != shooterClientId)
+                targetClientIds.Add(clientId);
+        }
+
+        return new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams
+            {
+                TargetClientIds = targetClientIds
+            }
+        };
+    }
+
     [ClientRpc]
-    private void SpawnImpactClientRpc(ImpactKind kind, Vector3 pos, Vector3 normal, ulong hitNetId)
+    private void SpawnImpactClientRpc(ImpactKind kind, Vector3 pos, Vector3 normal, ulong hitNetId, ClientRpcParams rpcParams = default)
     {
         GameObject prefab = (kind == ImpactKind.Enemy) ? enemyImpactPrefab : worldImpactPrefab;
         if (!prefab) return;
@@ -212,7 +293,10 @@ public class NetworkProjectile : NetworkBehaviour
         }
         else
         {
-            var fx = Instantiate(prefab, pos, rot);
+            Transform worldVfxRoot = LevelPresentationHooks.Instance != null
+                ? LevelPresentationHooks.Instance.WorldVfxRoot
+                : null;
+            var fx = Instantiate(prefab, pos, rot, worldVfxRoot);
             Destroy(fx, Mathf.Max(0.1f, worldFxLifetime));
         }
     }

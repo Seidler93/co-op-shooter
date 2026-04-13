@@ -100,11 +100,14 @@ MonoBehaviour:
   projectileSpeed: 35
   maxAimDistance: 250
   fireCooldown: 0.12
+  resolveHitsImmediatelyOnServer: 1
   fullAuto: 1
   aimMask:
     serializedVersion: 2
     m_Bits: 257
   ignoreShooterCollision: 1
+  replicateTracerToRemoteClients: 1
+  replicateMuzzleFlashToRemoteClients: 1
   baseDamage: 20
   damagePerUpgrade: 5
   fireRateMultiplierPerUpgrade: 0.9
@@ -139,6 +142,8 @@ MonoBehaviour:
   recoilSnappiness: 28
   recoilMaxPitch: 18
   recoilMaxYaw: 8
+  maxBufferedRemoteShots: 3
+  forcedAimSyncInterval: 0.08
 --- !u!114 &8677421479112390098
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -250,10 +255,19 @@ MonoBehaviour:
   startReserve: 500
   playerState: {fileID: 6986508744517089507}
   MagAmmo:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
     m_InternalValue: 0
   ReserveAmmo:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
     m_InternalValue: 0
   IsReloading:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
     m_InternalValue: 0
 --- !u!114 &7454771354867144780
 MonoBehaviour:
@@ -922,6 +936,7 @@ GameObject:
   - component: {fileID: 8362710128211727279}
   - component: {fileID: 8824206297519405855}
   - component: {fileID: 7687272366176895293}
+  - component: {fileID: 3056241524252898234}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -995,7 +1010,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1253330548
+  GlobalObjectIdHash: 2560019461
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1072,6 +1087,9 @@ MonoBehaviour:
   sceneAimCam: {fileID: 0}
   cameraController: {fileID: 3859886096818169934}
   Score:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
     m_InternalValue: 0
 --- !u!114 &3859886096818169934
 MonoBehaviour:
@@ -1108,6 +1126,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkWeaponAim
   ShowTopMostFoldoutHeaderGroup: 1
+  aimSyncThreshold: 0.1
 --- !u!114 &6986508744517089507
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1222,6 +1241,9 @@ MonoBehaviour:
   killPoints: 100
   logHealthChanges: 1
   CurrentHP:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
     m_InternalValue: 0
 --- !u!114 &8362710128211727279
 MonoBehaviour:
@@ -1279,9 +1301,41 @@ MonoBehaviour:
   maxDamageUpgradeLevel: 5
   maxFireRateUpgradeLevel: 5
   DamageUpgradeLevel:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
     m_InternalValue: 0
   FireRateUpgradeLevel:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
     m_InternalValue: 0
+--- !u!114 &3056241524252898234
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6042401852463695999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7b3bf0f89873354786b482dca870616, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HealthAudioFeedback
+  health: {fileID: 4894989464222161887}
+  audioSource: {fileID: 0}
+  hitClips:
+  - {fileID: 8300000, guid: 794be7c4bd9e64c9bbb9776937807a9e, type: 3}
+  - {fileID: 8300000, guid: aa48101fd9bd24b82af88afb182a9bf5, type: 3}
+  - {fileID: 8300000, guid: ed042c87951ed40268592d7ca7a2de59, type: 3}
+  hitVolume: 1
+  hitPitchMin: 0.96
+  hitPitchMax: 1.04
+  minHitInterval: 0.05
+  deathClips: []
+  deathVolume: 1
+  deathPitchMin: 0.96
+  deathPitchMax: 1.04
 --- !u!1 &6487970761737627794
 GameObject:
   m_ObjectHideFlags: 0

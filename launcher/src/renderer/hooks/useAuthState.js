@@ -59,17 +59,31 @@ export function useAuthState() {
       return null;
     }
 
-    const payload = {
-      id: user.id,
-      email: user.email,
-      display_name: user.user_metadata?.display_name || user.email?.split("@")[0] || "Player",
-      updated_at: new Date().toISOString(),
-    };
+    const { data: existingProfile, error: existingError } = await supabase
+      .from("profiles")
+      .select("id, display_name")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (existingError) {
+      setMessage(existingError.message);
+      return null;
+    }
+
+    if (existingProfile) {
+      setProfile(existingProfile);
+      return existingProfile;
+    }
 
     const { data, error } = await supabase
       .from("profiles")
-      .upsert(payload, { onConflict: "id" })
-      .select()
+      .insert({
+        id: user.id,
+        email: user.email,
+        display_name: user.user_metadata?.display_name || user.email?.split("@")[0] || "Player",
+        updated_at: new Date().toISOString(),
+      })
+      .select("id, display_name")
       .single();
 
     if (error) {
@@ -160,8 +174,24 @@ export function useAuthState() {
       return;
     }
 
-    await supabase.auth.signOut();
-    setMessage("");
+    setBusy(true);
+
+    try {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        setMessage(error.message);
+        return { success: false };
+      }
+
+      setSession(null);
+      setProfile(null);
+      setEntitlement(defaultEntitlement());
+      setMessage("");
+      return { success: true };
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveProfile(displayName) {
@@ -173,22 +203,31 @@ export function useAuthState() {
     setMessage("");
 
     try {
+      const nextDisplayName = displayName || "Player";
       const { data, error } = await supabase
         .from("profiles")
-        .upsert(
-          {
-            id: session.user.id,
-            email: session.user.email,
-            display_name: displayName || "Player",
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "id" }
-        )
-        .select()
+        .upsert({
+          id: session.user.id,
+          email: session.user.email,
+          display_name: nextDisplayName,
+          updated_at: new Date().toISOString(),
+        })
+        .select("id, display_name")
         .single();
 
       if (error) {
         setMessage(error.message);
+        return { success: false };
+      }
+
+      const authUpdate = await supabase.auth.updateUser({
+        data: {
+          display_name: nextDisplayName,
+        },
+      });
+
+      if (authUpdate.error) {
+        setMessage(authUpdate.error.message);
         return { success: false };
       }
 

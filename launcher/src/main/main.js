@@ -54,6 +54,10 @@ function sendToRenderer(channel, payload) {
 }
 
 function createWindow() {
+  const windowIconPath = app.isPackaged
+    ? path.join(process.resourcesPath, "assets", "icon.ico")
+    : path.join(__dirname, "..", "..", "assets", "icon.ico");
+
   mainWindow = new BrowserWindow({
     width: 1060,
     height: 680,
@@ -63,6 +67,7 @@ function createWindow() {
     autoHideMenuBar: true,
     menuBarVisible: false,
     titleBarStyle: "hiddenInset",
+    icon: windowIconPath,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -526,7 +531,41 @@ async function installGame() {
   }
 }
 
-async function launchInstalledGame() {
+function buildGameLaunchArgs(context = {}) {
+  const args = [];
+
+  if (context.userId) {
+    args.push(`--projectz-user-id=${context.userId}`);
+  }
+
+  if (context.email) {
+    args.push(`--projectz-email=${context.email}`);
+  }
+
+  if (context.username) {
+    args.push(`--projectz-username=${context.username}`);
+  }
+
+  if (context.displayName) {
+    args.push(`--projectz-display-name=${context.displayName}`);
+  }
+
+  if (context.supabaseUrl) {
+    args.push(`--projectz-supabase-url=${context.supabaseUrl}`);
+  }
+
+  if (context.supabaseAnonKey) {
+    args.push(`--projectz-supabase-anon-key=${context.supabaseAnonKey}`);
+  }
+
+  if (context.supabaseAccessToken) {
+    args.push(`--projectz-supabase-access-token=${context.supabaseAccessToken}`);
+  }
+
+  return args;
+}
+
+async function launchInstalledGame(context = {}) {
   const state = await getGameState();
 
   if (!state.installed.canLaunch) {
@@ -545,7 +584,7 @@ async function launchInstalledGame() {
     };
   }
 
-  const child = spawn(state.installed.executablePath, [], {
+  const child = spawn(state.installed.executablePath, buildGameLaunchArgs(context), {
     cwd: path.dirname(state.installed.executablePath),
     detached: true,
     windowsHide: false,
@@ -754,8 +793,8 @@ function registerIpc() {
     }
   });
 
-  ipcMain.handle("game:launch", async () => {
-    return launchInstalledGame();
+  ipcMain.handle("game:launch", async (_event, context = {}) => {
+    return launchInstalledGame(context);
   });
 
   ipcMain.handle("game:repair", async () => {

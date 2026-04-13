@@ -27,10 +27,16 @@ public class WeaponAimController : NetworkBehaviour
     [SerializeField] private float recoilSnappiness = 28f;
     [SerializeField] private float recoilMaxPitch = 18f;
     [SerializeField] private float recoilMaxYaw = 8f;
+    [SerializeField] private int maxBufferedRemoteShots = 3;
+
+    [Header("Aim Sync")]
+    [SerializeField] private float forcedAimSyncInterval = 0.08f;
 
     private Vector2 recoilTarget;
     private Vector2 recoilCurrent;
     private int lastRecoilSeqSeen;
+    private Vector2 lastSentAimAngles;
+    private float lastAimSyncTime;
 
     private void Awake()
     {
@@ -48,6 +54,9 @@ public class WeaponAimController : NetworkBehaviour
 
         if (IsOwner && !mainCam)
             mainCam = Camera.main;
+
+        if (netAim != null)
+            lastSentAimAngles = netAim.WeaponAimAngles.Value;
     }
 
     private void LateUpdate()
@@ -66,7 +75,7 @@ public class WeaponAimController : NetworkBehaviour
             Quaternion desiredWorld = ComputeDesiredWorldRotationFromCameraRay();
             angles = WorldToLocalAimAngles(desiredWorld);
 
-            netAim.OwnerSetAimAngles(angles);
+            SyncAimAnglesIfNeeded(angles);
         }
         else
         {
@@ -132,12 +141,15 @@ public class WeaponAimController : NetworkBehaviour
         int seq = netAim.RecoilSeq.Value;
         if (seq == lastRecoilSeqSeen) return;
 
+        Vector2 kick = netAim.RecoilKick.Value;
+        int recoilEvents = Mathf.Clamp(seq - lastRecoilSeqSeen, 1, maxBufferedRemoteShots);
         lastRecoilSeqSeen = seq;
 
-        Vector2 kick = netAim.RecoilKick.Value;
-
-        recoilTarget.x += kick.x;
-        recoilTarget.y += kick.y;
+        for (int i = 0; i < recoilEvents; i++)
+        {
+            recoilTarget.x += kick.x;
+            recoilTarget.y += kick.y;
+        }
 
         recoilTarget.x = Mathf.Clamp(recoilTarget.x, -recoilMaxPitch, recoilMaxPitch);
         recoilTarget.y = Mathf.Clamp(recoilTarget.y, -recoilMaxYaw, recoilMaxYaw);
@@ -145,8 +157,27 @@ public class WeaponAimController : NetworkBehaviour
 
     private void UpdateRemoteRecoil(float dt)
     {
-        recoilTarget = Vector2.Lerp(recoilTarget, Vector2.zero, recoilReturnSpeed * dt);
-        recoilCurrent = Vector2.Lerp(recoilCurrent, recoilTarget, recoilSnappiness * dt);
+        recoilTarget.x = Mathf.MoveTowards(recoilTarget.x, 0f, recoilReturnSpeed * dt);
+        recoilTarget.y = Mathf.MoveTowards(recoilTarget.y, 0f, recoilReturnSpeed * dt);
+
+        float smoothT = 1f - Mathf.Exp(-recoilSnappiness * dt);
+        recoilCurrent = Vector2.Lerp(recoilCurrent, recoilTarget, smoothT);
+    }
+
+    private void SyncAimAnglesIfNeeded(Vector2 angles)
+    {
+        if (netAim == null)
+            return;
+
+        bool shouldForceSync = Time.time - lastAimSyncTime >= forcedAimSyncInterval;
+        bool changedEnough = Vector2.SqrMagnitude(angles - lastSentAimAngles) > 0.0001f;
+
+        if (!changedEnough && !shouldForceSync)
+            return;
+
+        netAim.OwnerSetAimAngles(angles);
+        lastSentAimAngles = angles;
+        lastAimSyncTime = Time.time;
     }
 
     private float NormalizeAngle(float a)

@@ -49,7 +49,8 @@ public class WeaponRecoil : MonoBehaviour
         recoilTarget.x = Mathf.MoveTowards(recoilTarget.x, 0f, returnSpeed * dt);
         recoilTarget.y = Mathf.MoveTowards(recoilTarget.y, 0f, returnSpeed * dt);
 
-        recoilCurrent = Vector2.Lerp(recoilCurrent, recoilTarget, recoilSnappiness * dt);
+        float smoothT = 1f - Mathf.Exp(-recoilSnappiness * dt);
+        recoilCurrent = Vector2.Lerp(recoilCurrent, recoilTarget, smoothT);
 
         float pitch = recoilCurrent.x * recoilPitchSign;
         float yaw = recoilCurrent.y * recoilYawSign;
@@ -58,5 +59,14 @@ public class WeaponRecoil : MonoBehaviour
         Quaternion yawRot = Quaternion.AngleAxis(yaw, Vector3.up);
 
         recoilPivot.localRotation = yawRot * pitchRot;
+    }
+
+    public void ResetRecoil()
+    {
+        recoilTarget = Vector2.zero;
+        recoilCurrent = Vector2.zero;
+
+        if (recoilPivot != null)
+            recoilPivot.localRotation = Quaternion.identity;
     }
 }

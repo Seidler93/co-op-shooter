@@ -1,13 +1,16 @@
 public static class ShopCatalog
 {
-    public static int GetCost(ShopItemType item)
+    private const int UpgradeBaseCost = 300;
+    private const int UpgradeCostStep = 100;
+
+    public static int GetCost(ShopItemType item, int currentLevel = 0)
     {
         switch (item)
         {
             case ShopItemType.Ammo: return 100;
             case ShopItemType.Health: return 150;
-            case ShopItemType.DamageUpgrade: return 300;
-            case ShopItemType.FireRateUpgrade: return 300;
+            case ShopItemType.DamageUpgrade: return UpgradeBaseCost + (UpgradeCostStep * currentLevel);
+            case ShopItemType.FireRateUpgrade: return UpgradeBaseCost + (UpgradeCostStep * currentLevel);
             default: return 9999;
         }
     }

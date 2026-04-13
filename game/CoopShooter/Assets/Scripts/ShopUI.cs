@@ -26,6 +26,12 @@ public class ShopUI : MonoBehaviour
     [SerializeField] private TMP_Text fireRateLabel;
 
     private PlayerShopper currentShopper;
+    private PlayerController currentPlayerController;
+    private NetworkPlayer currentNetworkPlayer;
+    private int? authoritativePointsOverride;
+    private int? authoritativeDamageLevelOverride;
+    private int? authoritativeFireRateLevelOverride;
+    private bool purchasePending;
 
     private void Awake()
     {
@@ -54,13 +60,33 @@ public class ShopUI : MonoBehaviour
 
     public void Open(PlayerShopper shopper)
     {
+        UnbindCurrentPlayer();
+
         currentShopper = shopper;
+        currentPlayerController = shopper != null ? shopper.GetComponent<PlayerController>() : null;
+        currentNetworkPlayer = shopper != null ? shopper.GetComponent<NetworkPlayer>() : null;
+        authoritativePointsOverride = null;
+        authoritativeDamageLevelOverride = null;
+        authoritativeFireRateLevelOverride = null;
+        purchasePending = false;
+
+        if (currentNetworkPlayer != null)
+            currentNetworkPlayer.Score.OnValueChanged += OnScoreChanged;
+
+        if (currentShopper != null)
+        {
+            currentShopper.DamageUpgradeLevel.OnValueChanged += OnDamageUpgradeLevelChanged;
+            currentShopper.FireRateUpgradeLevel.OnValueChanged += OnFireRateUpgradeLevelChanged;
+        }
 
         if (shopPanel != null)
             shopPanel.SetActive(true);
 
+        UpdateButtonInteractable();
         RefreshPoints();
         ShowMessage("", true);
+
+        currentPlayerController?.SetGameplayInputBlocked(true);
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
@@ -68,7 +94,15 @@ public class ShopUI : MonoBehaviour
 
     public void Close()
     {
+        currentPlayerController?.SetGameplayInputBlocked(false);
+        UnbindCurrentPlayer();
         currentShopper = null;
+        currentPlayerController = null;
+        currentNetworkPlayer = null;
+        authoritativePointsOverride = null;
+        authoritativeDamageLevelOverride = null;
+        authoritativeFireRateLevelOverride = null;
+        purchasePending = false;
 
         if (shopPanel != null)
             shopPanel.SetActive(false);
@@ -99,28 +133,37 @@ public class ShopUI : MonoBehaviour
     public void RefreshPoints()
     {
         UpdateLabels();
+        UpdateButtonInteractable();
 
         if (pointsText == null)
             return;
 
-        if (currentShopper == null)
+        if (currentNetworkPlayer == null)
         {
             pointsText.text = "Points: --";
             return;
         }
 
-        NetworkPlayer player = currentShopper.GetComponent<NetworkPlayer>();
-        if (player == null)
-        {
-            pointsText.text = "Points: --";
-            return;
-        }
-
-        pointsText.text = $"Points: {player.Score.Value}";
+        int points = authoritativePointsOverride ?? currentNetworkPlayer.Score.Value;
+        pointsText.text = $"Points: {points}";
     }
 
     private void UpdateLabels()
     {
+        int damageLevel = currentShopper != null
+            ? (authoritativeDamageLevelOverride ?? currentShopper.CurrentDamageUpgradeLevel)
+            : 0;
+        int fireRateLevel = currentShopper != null
+            ? (authoritativeFireRateLevelOverride ?? currentShopper.CurrentFireRateUpgradeLevel)
+            : 0;
+
+        int damageCost = currentShopper != null
+            ? ShopCatalog.GetCost(ShopItemType.DamageUpgrade, damageLevel)
+            : ShopCatalog.GetCost(ShopItemType.DamageUpgrade);
+        int fireRateCost = currentShopper != null
+            ? ShopCatalog.GetCost(ShopItemType.FireRateUpgrade, fireRateLevel)
+            : ShopCatalog.GetCost(ShopItemType.FireRateUpgrade);
+
         if (ammoLabel != null)
             ammoLabel.text = $"Ammo ({ShopCatalog.GetCost(ShopItemType.Ammo)})";
 
@@ -128,15 +171,77 @@ public class ShopUI : MonoBehaviour
             healthLabel.text = $"Health ({ShopCatalog.GetCost(ShopItemType.Health)})";
 
         if (damageLabel != null)
-            damageLabel.text = $"Damage Upgrade ({ShopCatalog.GetCost(ShopItemType.DamageUpgrade)})";
+            damageLabel.text = $"Damage Upgrade ({damageCost})";
 
         if (fireRateLabel != null)
-            fireRateLabel.text = $"Fire Rate Upgrade ({ShopCatalog.GetCost(ShopItemType.FireRateUpgrade)})";
+            fireRateLabel.text = $"Fire Rate Upgrade ({fireRateCost})";
     }
 
     private void Buy(ShopItemType itemType)
     {
         if (currentShopper == null) return;
+        if (purchasePending) return;
+
+        purchasePending = true;
+        UpdateButtonInteractable();
         currentShopper.BuyItemServerRpc(itemType);
+    }
+
+    public void HandlePurchaseResult(bool success, string message, int authoritativeScore, int damageLevel, int fireRateLevel)
+    {
+        authoritativePointsOverride = authoritativeScore;
+        authoritativeDamageLevelOverride = damageLevel;
+        authoritativeFireRateLevelOverride = fireRateLevel;
+        purchasePending = false;
+
+        ShowMessage(message, success);
+        RefreshPoints();
+    }
+
+    private void OnScoreChanged(int previousValue, int newValue)
+    {
+        authoritativePointsOverride = null;
+        RefreshPoints();
+    }
+
+    private void OnDamageUpgradeLevelChanged(int previousValue, int newValue)
+    {
+        authoritativeDamageLevelOverride = null;
+        UpdateLabels();
+        UpdateButtonInteractable();
+    }
+
+    private void OnFireRateUpgradeLevelChanged(int previousValue, int newValue)
+    {
+        authoritativeFireRateLevelOverride = null;
+        UpdateLabels();
+        UpdateButtonInteractable();
+    }
+
+    private void UpdateButtonInteractable()
+    {
+        bool canInteract = currentShopper != null && !purchasePending;
+
+        if (ammoButton != null) ammoButton.interactable = canInteract;
+        if (healthButton != null) healthButton.interactable = canInteract;
+        if (damageButton != null) damageButton.interactable = canInteract;
+        if (fireRateButton != null) fireRateButton.interactable = canInteract;
+    }
+
+    private void UnbindCurrentPlayer()
+    {
+        if (currentNetworkPlayer != null)
+            currentNetworkPlayer.Score.OnValueChanged -= OnScoreChanged;
+
+        if (currentShopper != null)
+        {
+            currentShopper.DamageUpgradeLevel.OnValueChanged -= OnDamageUpgradeLevelChanged;
+            currentShopper.FireRateUpgradeLevel.OnValueChanged -= OnFireRateUpgradeLevelChanged;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        UnbindCurrentPlayer();
     }
 }

@@ -23,6 +23,7 @@ public class WeaponShooter : NetworkBehaviour
     [SerializeField] private float projectileSpeed = 35f;
     [SerializeField] private float maxAimDistance = 250f;
     [SerializeField] private float fireCooldown = 0.12f;
+    [SerializeField] private bool resolveHitsImmediatelyOnServer = true;
 
     [Header("Fire Mode")]
     [SerializeField] private bool fullAuto = true;
@@ -32,6 +33,10 @@ public class WeaponShooter : NetworkBehaviour
 
     [Header("Collision")]
     [SerializeField] private bool ignoreShooterCollision = true;
+
+    [Header("Remote Replicated Shot VFX")]
+    [SerializeField] private bool replicateTracerToRemoteClients = true;
+    [SerializeField] private bool replicateMuzzleFlashToRemoteClients = true;
 
     [Header("Shop Upgrades")]
     [SerializeField] private int baseDamage = 20;
@@ -64,8 +69,6 @@ public class WeaponShooter : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        if (!IsOwner) return;
-
         if (!weaponBloom) weaponBloom = GetComponent<WeaponBloom>();
         if (!weaponRecoil) weaponRecoil = GetComponent<WeaponRecoil>();
         if (!crosshairDriver) crosshairDriver = GetComponent<WeaponCrosshairDriver>();
@@ -79,6 +82,8 @@ public class WeaponShooter : NetworkBehaviour
 
         if (!visualMuzzle && muzzle)
             visualMuzzle = muzzle;
+
+        if (!IsOwner) return;
     }
 
     private void Update()
@@ -212,7 +217,12 @@ public class WeaponShooter : NetworkBehaviour
         if (muzzleFlash != null)
             muzzleFlash.PlayFlash();
 
-        FireServerRpc(muzzle.position, rot, initialVel);
+        Vector3 replicatedTracerStart = visualMuzzle != null ? visualMuzzle.position : muzzle.position;
+        Vector3 replicatedTracerEnd = hasPredictedHit
+            ? predictedHit.point
+            : (muzzle.position + dir * maxAimDistance);
+
+        FireServerRpc(muzzle.position, rot, initialVel, replicatedTracerStart, replicatedTracerEnd);
     }
 
     private void SpawnLocalPredictedImpact(Vector3 position, Vector3 normal, GameObject impactPrefab)
@@ -228,7 +238,7 @@ public class WeaponShooter : NetworkBehaviour
     }
 
     [ServerRpc]
-    private void FireServerRpc(Vector3 spawnPos, Quaternion spawnRot, Vector3 initialVelocity, ServerRpcParams rpcParams = default)
+    private void FireServerRpc(Vector3 spawnPos, Quaternion spawnRot, Vector3 initialVelocity, Vector3 tracerStart, Vector3 tracerEnd, ServerRpcParams rpcParams = default)
     {
         if (weaponAmmo == null)
             weaponAmmo = GetComponent<WeaponAmmoNetcode>();
@@ -268,7 +278,25 @@ public class WeaponShooter : NetworkBehaviour
 
         proj.Spawn(true);
 
+        if (resolveHitsImmediatelyOnServer && projectile != null)
+        {
+            projectile.ResolveImmediateImpact(maxAimDistance);
+        }
+
         weaponAmmo.ServerTryReloadIfEmpty();
+
+        ulong[] otherClientIds = GetOtherClientIds(rpcParams.Receive.SenderClientId);
+
+        if (otherClientIds.Length > 0 && (replicateTracerToRemoteClients || replicateMuzzleFlashToRemoteClients))
+        {
+            PlayRemoteShotVfxClientRpc(tracerStart, tracerEnd, new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams
+                {
+                    TargetClientIds = otherClientIds
+                }
+            });
+        }
 
         if (weaponAudio != null)
         {
@@ -276,10 +304,25 @@ public class WeaponShooter : NetworkBehaviour
             {
                 Send = new ClientRpcSendParams
                 {
-                    TargetClientIds = GetOtherClientIds(rpcParams.Receive.SenderClientId)
+                    TargetClientIds = otherClientIds
                 }
             });
         }
+    }
+
+    [ClientRpc]
+    private void PlayRemoteShotVfxClientRpc(Vector3 tracerStart, Vector3 tracerEnd, ClientRpcParams rpcParams = default)
+    {
+        if (replicateMuzzleFlashToRemoteClients)
+            muzzleFlash?.PlayFlash();
+
+        if (!replicateTracerToRemoteClients)
+            return;
+
+        if (weaponTracer == null)
+            weaponTracer = GetComponent<WeaponTracer>();
+
+        weaponTracer?.SpawnTracer(tracerStart, tracerEnd);
     }
 
     private ulong[] GetOtherClientIds(ulong shooterId)
@@ -297,20 +340,10 @@ public class WeaponShooter : NetworkBehaviour
         return result.ToArray();
     }
 
-    public void Server_SetDamageUpgradeLevel(int level)
+    public void ApplyShopUpgradeLevels(int damageLevel, int fireRateLevel)
     {
-        if (!IsServer)
-            return;
-
-        damageUpgradeLevel = level;
-    }
-
-    public void Server_SetFireRateUpgradeLevel(int level)
-    {
-        if (!IsServer)
-            return;
-
-        fireRateUpgradeLevel = level;
+        damageUpgradeLevel = Mathf.Max(0, damageLevel);
+        fireRateUpgradeLevel = Mathf.Max(0, fireRateLevel);
         fireCooldown = defaultFireCooldown * Mathf.Pow(fireRateMultiplierPerUpgrade, fireRateUpgradeLevel);
     }
 

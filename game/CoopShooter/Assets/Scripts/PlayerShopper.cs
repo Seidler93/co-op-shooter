@@ -31,12 +31,28 @@ public class PlayerShopper : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
+    public int CurrentDamageUpgradeLevel => DamageUpgradeLevel.Value;
+    public int CurrentFireRateUpgradeLevel => FireRateUpgradeLevel.Value;
+
     private void Awake()
     {
         if (networkPlayer == null) networkPlayer = GetComponent<NetworkPlayer>();
         if (health == null) health = GetComponent<Health>();
         if (weaponShooter == null) weaponShooter = GetComponentInChildren<WeaponShooter>(true);
         if (weaponAmmo == null) weaponAmmo = GetComponentInChildren<WeaponAmmoNetcode>(true);
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        DamageUpgradeLevel.OnValueChanged += HandleDamageUpgradeChanged;
+        FireRateUpgradeLevel.OnValueChanged += HandleFireRateUpgradeChanged;
+        ApplyUpgradeLevelsToWeapon();
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        DamageUpgradeLevel.OnValueChanged -= HandleDamageUpgradeChanged;
+        FireRateUpgradeLevel.OnValueChanged -= HandleFireRateUpgradeChanged;
     }
 
     [ServerRpc]
@@ -49,7 +65,7 @@ public class PlayerShopper : NetworkBehaviour
             return;
         }
 
-        int cost = ShopCatalog.GetCost(itemType);
+        int cost = GetCurrentCost(itemType);
 
         if (!networkPlayer.TrySpendScore(cost))
         {
@@ -119,7 +135,7 @@ public class PlayerShopper : NetworkBehaviour
                 }
 
                 DamageUpgradeLevel.Value++;
-                weaponShooter.Server_SetDamageUpgradeLevel(DamageUpgradeLevel.Value);
+                ApplyUpgradeLevelsToWeapon();
 
                 message = $"Damage Lv {DamageUpgradeLevel.Value}";
                 return true;
@@ -138,7 +154,7 @@ public class PlayerShopper : NetworkBehaviour
                 }
 
                 FireRateUpgradeLevel.Value++;
-                weaponShooter.Server_SetFireRateUpgradeLevel(FireRateUpgradeLevel.Value);
+                ApplyUpgradeLevelsToWeapon();
 
                 message = $"Fire Rate Lv {FireRateUpgradeLevel.Value}";
                 return true;
@@ -151,6 +167,7 @@ public class PlayerShopper : NetworkBehaviour
 
     private void SendPurchaseResult(bool success, string message, ulong targetClientId)
     {
+        int remainingScore = networkPlayer != null ? networkPlayer.Score.Value : 0;
         ClientRpcParams clientRpcParams = new ClientRpcParams
         {
             Send = new ClientRpcSendParams
@@ -159,16 +176,57 @@ public class PlayerShopper : NetworkBehaviour
             }
         };
 
-        PurchaseResultClientRpc(success, message, clientRpcParams);
+        PurchaseResultClientRpc(
+            success,
+            message,
+            remainingScore,
+            DamageUpgradeLevel.Value,
+            FireRateUpgradeLevel.Value,
+            clientRpcParams
+        );
     }
 
     [ClientRpc]
-    private void PurchaseResultClientRpc(bool success, string message, ClientRpcParams clientRpcParams = default)
+    private void PurchaseResultClientRpc(
+        bool success,
+        string message,
+        int remainingScore,
+        int damageLevel,
+        int fireRateLevel,
+        ClientRpcParams clientRpcParams = default
+    )
     {
         if (ShopUI.Instance != null)
         {
-            ShopUI.Instance.ShowMessage(message, success);
-            ShopUI.Instance.RefreshPoints();
+            ShopUI.Instance.HandlePurchaseResult(success, message, remainingScore, damageLevel, fireRateLevel);
         }
+    }
+
+    private void HandleDamageUpgradeChanged(int previousValue, int newValue)
+    {
+        ApplyUpgradeLevelsToWeapon();
+    }
+
+    private void HandleFireRateUpgradeChanged(int previousValue, int newValue)
+    {
+        ApplyUpgradeLevelsToWeapon();
+    }
+
+    private void ApplyUpgradeLevelsToWeapon()
+    {
+        if (weaponShooter == null)
+            return;
+
+        weaponShooter.ApplyShopUpgradeLevels(DamageUpgradeLevel.Value, FireRateUpgradeLevel.Value);
+    }
+
+    public int GetCurrentCost(ShopItemType itemType)
+    {
+        return itemType switch
+        {
+            ShopItemType.DamageUpgrade => ShopCatalog.GetCost(itemType, DamageUpgradeLevel.Value),
+            ShopItemType.FireRateUpgrade => ShopCatalog.GetCost(itemType, FireRateUpgradeLevel.Value),
+            _ => ShopCatalog.GetCost(itemType)
+        };
     }
 }

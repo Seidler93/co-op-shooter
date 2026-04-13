@@ -22,13 +22,17 @@ export default function SettingsModal({
     return null;
   }
 
-  const profileName = authState.profile?.display_name || authState.session?.user?.email || "Pilot";
+  const profileName =
+    authState.profile?.display_name ||
+    authState.session?.user?.email?.split("@")[0] ||
+    "Pilot";
   const email = authState.session?.user?.email || "Unknown";
   const installPath = gameRuntime.gameState?.installed?.installDir || "No install folder selected yet.";
   const installedVersion = gameRuntime.gameState?.installed?.installedVersion || "Not installed";
   const latestVersion = gameRuntime.gameState?.remote?.version || "Unknown";
   const launcherVersion = launcherRuntime.launcherInfo?.version || "...";
   const launcherStatus = launcherRuntime.launcherUpdate?.message || "Launcher status unavailable.";
+  const launcherUpdatePhase = launcherRuntime.launcherUpdate?.phase || "idle";
 
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
@@ -130,6 +134,16 @@ export default function SettingsModal({
             <button className="menu-action" onClick={launcherRuntime.checkForUpdates}>
               Check for Updates
             </button>
+            {launcherUpdatePhase === "available" ? (
+              <button className="menu-action" onClick={launcherRuntime.downloadUpdate}>
+                Download Update
+              </button>
+            ) : null}
+            {launcherUpdatePhase === "downloaded" ? (
+              <button className="menu-action primary" onClick={launcherRuntime.quitAndInstall}>
+                Restart to Install
+              </button>
+            ) : null}
             <button className="menu-action" onClick={launcherRuntime.relaunch}>
               Relaunch App
             </button>
@@ -153,13 +167,31 @@ export default function SettingsModal({
               <strong>{installPath}</strong>
             </div>
             <div className="settings-action-grid">
-              <button className="menu-action" onClick={gameRuntime.openInstallDirectory}>
+              <button
+                className="menu-action"
+                onClick={() => {
+                  onClose();
+                  gameRuntime.openInstallDirectory();
+                }}
+              >
                 Open Folder
               </button>
-              <button className="menu-action" onClick={gameRuntime.chooseInstallDirectory}>
+              <button
+                className="menu-action"
+                onClick={() => {
+                  onClose();
+                  gameRuntime.chooseInstallDirectory();
+                }}
+              >
                 Change Folder
               </button>
-              <button className="menu-action" onClick={gameRuntime.repairGame}>
+              <button
+                className="menu-action"
+                onClick={() => {
+                  onClose();
+                  gameRuntime.repairGame();
+                }}
+              >
                 Repair Install
               </button>
               <button className="menu-action" onClick={gameRuntime.copyDiagnostics}>

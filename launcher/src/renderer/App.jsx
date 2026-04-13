@@ -21,6 +21,14 @@ export default function App() {
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
 
   const isAuthenticated = !!authState.session;
+  const launcherPhase = launcherRuntime.launcherUpdate?.phase || "idle";
+  const launcherPlayBlockMessage = {
+    checking: "Finishing launcher update check before play.",
+    available: "Update the launcher before playing.",
+    downloading: "Launcher update is downloading. Install it before playing.",
+    downloaded: "Restart to install the launcher update before playing.",
+    error: "Launcher update status unknown. Recheck in Settings before playing.",
+  }[launcherPhase] || "";
 
   async function handlePrimaryAction() {
     if (!isAuthenticated) {
@@ -33,7 +41,21 @@ export default function App() {
     }
 
     if (gameRuntime.primaryAction === "play") {
-      await gameRuntime.launchGame();
+      if (launcherPlayBlockMessage) {
+        return;
+      }
+
+      await gameRuntime.launchGame({
+        userId: authState.session?.user?.id,
+        email: authState.session?.user?.email,
+        username:
+          authState.profile?.display_name ||
+          authState.session?.user?.email?.split("@")[0],
+        displayName: authState.profile?.display_name,
+        supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+        supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        supabaseAccessToken: authState.session?.access_token,
+      });
       return;
     }
 
@@ -54,6 +76,7 @@ export default function App() {
             authState={authState}
             launcherRuntime={launcherRuntime}
             gameRuntime={gameRuntime}
+            launcherPlayBlockMessage={launcherPlayBlockMessage}
             onPrimaryAction={handlePrimaryAction}
             onOpenBetaModal={() => setBetaModalOpen(true)}
             onRequestUninstall={() => setUninstallModalOpen(true)}
