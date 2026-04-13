@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class NetworkWeaponAim : NetworkBehaviour
 {
+    [SerializeField] private float aimSyncThreshold = 0.1f;
+
     // Weapon aim angles relative to player (degrees): x=pitch, y=yaw
     public readonly NetworkVariable<Vector2> WeaponAimAngles =
         new NetworkVariable<Vector2>(
@@ -27,6 +29,9 @@ public class NetworkWeaponAim : NetworkBehaviour
     public void OwnerSetAimAngles(Vector2 angles)
     {
         if (!IsOwner) return;
+        if (Vector2.SqrMagnitude(WeaponAimAngles.Value - angles) < (aimSyncThreshold * aimSyncThreshold))
+            return;
+
         WeaponAimAngles.Value = angles;
     }
 
