@@ -167,6 +167,7 @@ public class PlayerShopper : NetworkBehaviour
 
     private void SendPurchaseResult(bool success, string message, ulong targetClientId)
     {
+        int remainingScore = networkPlayer != null ? networkPlayer.Score.Value : 0;
         ClientRpcParams clientRpcParams = new ClientRpcParams
         {
             Send = new ClientRpcSendParams
@@ -175,16 +176,29 @@ public class PlayerShopper : NetworkBehaviour
             }
         };
 
-        PurchaseResultClientRpc(success, message, clientRpcParams);
+        PurchaseResultClientRpc(
+            success,
+            message,
+            remainingScore,
+            DamageUpgradeLevel.Value,
+            FireRateUpgradeLevel.Value,
+            clientRpcParams
+        );
     }
 
     [ClientRpc]
-    private void PurchaseResultClientRpc(bool success, string message, ClientRpcParams clientRpcParams = default)
+    private void PurchaseResultClientRpc(
+        bool success,
+        string message,
+        int remainingScore,
+        int damageLevel,
+        int fireRateLevel,
+        ClientRpcParams clientRpcParams = default
+    )
     {
         if (ShopUI.Instance != null)
         {
-            ShopUI.Instance.ShowMessage(message, success);
-            ShopUI.Instance.RefreshPoints();
+            ShopUI.Instance.HandlePurchaseResult(success, message, remainingScore, damageLevel, fireRateLevel);
         }
     }
 

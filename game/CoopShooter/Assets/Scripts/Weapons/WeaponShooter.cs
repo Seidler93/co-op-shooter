@@ -23,6 +23,7 @@ public class WeaponShooter : NetworkBehaviour
     [SerializeField] private float projectileSpeed = 35f;
     [SerializeField] private float maxAimDistance = 250f;
     [SerializeField] private float fireCooldown = 0.12f;
+    [SerializeField] private bool resolveHitsImmediatelyOnServer = true;
 
     [Header("Fire Mode")]
     [SerializeField] private bool fullAuto = true;
@@ -276,6 +277,11 @@ public class WeaponShooter : NetworkBehaviour
         }
 
         proj.Spawn(true);
+
+        if (resolveHitsImmediatelyOnServer && projectile != null)
+        {
+            projectile.ResolveImmediateImpact(maxAimDistance);
+        }
 
         weaponAmmo.ServerTryReloadIfEmpty();
 

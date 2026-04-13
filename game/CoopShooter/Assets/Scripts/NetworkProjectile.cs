@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -116,16 +117,8 @@ public class NetworkProjectile : NetworkBehaviour
         {
             Vector3 sweepDir = delta / dist;
 
-            if (Physics.SphereCast(lastPos, sweepRadius, sweepDir, out RaycastHit hit, dist, hitMask, QueryTriggerInteraction.Ignore))
+            if (TryGetFirstValidHit(lastPos, sweepDir, dist, out RaycastHit hit))
             {
-                if (ShouldIgnoreHit(hit.collider))
-                {
-                    // If we ignore (ex: shooter), keep moving this step
-                    transform.position = nextPos;
-                    lastPos = nextPos;
-                    return;
-                }
-
                 hasHit = true;      // set first to prevent double-trigger
                 HandleImpact(hit);  // VFX + damage (server authoritative)
                 SafeDespawn();
@@ -136,6 +129,48 @@ public class NetworkProjectile : NetworkBehaviour
         // No hit: move forward deterministically
         transform.position = nextPos;
         lastPos = nextPos;
+    }
+
+    public bool ResolveImmediateImpact(float distance)
+    {
+        if (!IsServer) return false;
+        if (hasHit) return false;
+        if (distance <= 0.0001f) return false;
+
+        if (!TryGetFirstValidHit(transform.position, dir, distance, out RaycastHit hit))
+            return false;
+
+        hasHit = true;
+        HandleImpact(hit);
+        SafeDespawn();
+        return true;
+    }
+
+    private bool TryGetFirstValidHit(Vector3 origin, Vector3 direction, float distance, out RaycastHit validHit)
+    {
+        RaycastHit[] hits = Physics.SphereCastAll(
+            origin,
+            sweepRadius,
+            direction,
+            distance,
+            hitMask,
+            QueryTriggerInteraction.Ignore
+        );
+
+        foreach (RaycastHit hit in hits.OrderBy(entry => entry.distance))
+        {
+            if (hit.collider == null)
+                continue;
+
+            if (ShouldIgnoreHit(hit.collider))
+                continue;
+
+            validHit = hit;
+            return true;
+        }
+
+        validHit = default;
+        return false;
     }
 
     private bool ShouldIgnoreHit(Collider col)

@@ -54,6 +54,10 @@ function sendToRenderer(channel, payload) {
 }
 
 function createWindow() {
+  const windowIconPath = app.isPackaged
+    ? path.join(process.resourcesPath, "assets", "icon.ico")
+    : path.join(__dirname, "..", "..", "assets", "icon.ico");
+
   mainWindow = new BrowserWindow({
     width: 1060,
     height: 680,
@@ -63,6 +67,7 @@ function createWindow() {
     autoHideMenuBar: true,
     menuBarVisible: false,
     titleBarStyle: "hiddenInset",
+    icon: windowIconPath,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
