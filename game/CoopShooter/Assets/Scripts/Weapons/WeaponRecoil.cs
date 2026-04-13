@@ -42,12 +42,12 @@ public class WeaponRecoil : MonoBehaviour
 
     public void TickRecoil(float dt, bool fireHeld)
     {
-        if (recoilPivot == null) return;
+        if (recoilPivot == null)
+            return;
 
         float returnSpeed = fireHeld ? recoilReturnWhileFiring : recoilReturnWhenReleased;
-
-        recoilTarget.x = Mathf.MoveTowards(recoilTarget.x, 0f, returnSpeed * dt);
-        recoilTarget.y = Mathf.MoveTowards(recoilTarget.y, 0f, returnSpeed * dt);
+        float returnT = 1f - Mathf.Exp(-returnSpeed * dt);
+        recoilTarget = Vector2.Lerp(recoilTarget, Vector2.zero, returnT);
 
         float smoothT = 1f - Mathf.Exp(-recoilSnappiness * dt);
         recoilCurrent = Vector2.Lerp(recoilCurrent, recoilTarget, smoothT);
@@ -57,7 +57,6 @@ public class WeaponRecoil : MonoBehaviour
 
         Quaternion pitchRot = Quaternion.AngleAxis(pitch, Vector3.right);
         Quaternion yawRot = Quaternion.AngleAxis(yaw, Vector3.up);
-
         recoilPivot.localRotation = yawRot * pitchRot;
     }
 

@@ -18,6 +18,7 @@ public class WeaponShooter : NetworkBehaviour
     [SerializeField] private WeaponTracer weaponTracer;
     [SerializeField] private WeaponAmmoNetcode weaponAmmo;
     [SerializeField] private PlayerState playerState;
+    [SerializeField] private WeaponAimController weaponAimController;
 
     [Header("Tuning")]
     [SerializeField] private float projectileSpeed = 35f;
@@ -43,8 +44,8 @@ public class WeaponShooter : NetworkBehaviour
     [SerializeField] private int damagePerUpgrade = 5;
     [SerializeField] private float fireRateMultiplierPerUpgrade = 0.9f;
 
-    private int damageUpgradeLevel = 0;
-    private int fireRateUpgradeLevel = 0;
+    private int damageUpgradeLevel;
+    private int fireRateUpgradeLevel;
     private float defaultFireCooldown;
 
     [Header("Networking (optional)")]
@@ -54,7 +55,6 @@ public class WeaponShooter : NetworkBehaviour
     [Tooltip("Use a VISUAL-ONLY prefab here (no audio), so world impacts don't sound doubled.")]
     [SerializeField] private GameObject localWorldImpactPrefab;
     [SerializeField] private GameObject localEnemyImpactPrefab;
-
     [SerializeField] private float localWorldImpactLifetime = 2f;
 
     private float nextFireTime;
@@ -77,13 +77,12 @@ public class WeaponShooter : NetworkBehaviour
         if (!weaponAmmo) weaponAmmo = GetComponent<WeaponAmmoNetcode>();
         if (!playerState) playerState = GetComponentInParent<PlayerState>();
         if (!netAim) netAim = GetComponentInParent<NetworkWeaponAim>();
+        if (!weaponAimController) weaponAimController = GetComponent<WeaponAimController>();
 
         ownerCam = Camera.main;
 
         if (!visualMuzzle && muzzle)
             visualMuzzle = muzzle;
-
-        if (!IsOwner) return;
     }
 
     private void Update()
@@ -151,18 +150,9 @@ public class WeaponShooter : NetworkBehaviour
 
     private void FireShot()
     {
-        Ray camRay = ownerCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-
-        Vector3 aimPoint;
-        if (Physics.Raycast(camRay, out RaycastHit camHit, maxAimDistance, aimMask, QueryTriggerInteraction.Ignore))
-            aimPoint = camHit.point;
-        else
-            aimPoint = camRay.origin + camRay.direction * maxAimDistance;
-
-        Vector3 dir = aimPoint - muzzle.position;
-        if (dir.sqrMagnitude < 0.0001f)
-            dir = muzzle.forward;
-        dir.Normalize();
+        Vector3 dir = weaponAimController != null
+            ? weaponAimController.ResolveShotDirection(ownerCam, muzzle)
+            : ResolveFallbackShotDirection();
 
         weaponBloom?.AddBloomOnShot();
 
@@ -189,7 +179,6 @@ public class WeaponShooter : NetworkBehaviour
 
             float dist = Vector3.Distance(muzzle.position, muzzleLineEnd);
             Vector3 tracerEnd = tracerStart + dir * dist;
-
             weaponTracer.SpawnTracer(tracerStart, tracerEnd);
         }
 
@@ -212,7 +201,7 @@ public class WeaponShooter : NetworkBehaviour
             netAim.OwnerTriggerRecoil(kick);
 
         Quaternion rot = Quaternion.LookRotation(dir, Vector3.up);
-        Vector3 initialVel = dir * projectileSpeed;
+        Vector3 initialVelocity = dir * projectileSpeed;
 
         if (muzzleFlash != null)
             muzzleFlash.PlayFlash();
@@ -222,7 +211,7 @@ public class WeaponShooter : NetworkBehaviour
             ? predictedHit.point
             : (muzzle.position + dir * maxAimDistance);
 
-        FireServerRpc(muzzle.position, rot, initialVel, replicatedTracerStart, replicatedTracerEnd);
+        FireServerRpc(muzzle.position, rot, initialVelocity, replicatedTracerStart, replicatedTracerEnd);
     }
 
     private void SpawnLocalPredictedImpact(Vector3 position, Vector3 normal, GameObject impactPrefab)
@@ -279,9 +268,7 @@ public class WeaponShooter : NetworkBehaviour
         proj.Spawn(true);
 
         if (resolveHitsImmediatelyOnServer && projectile != null)
-        {
             projectile.ResolveImmediateImpact(maxAimDistance);
-        }
 
         weaponAmmo.ServerTryReloadIfEmpty();
 
@@ -327,11 +314,12 @@ public class WeaponShooter : NetworkBehaviour
 
     private ulong[] GetOtherClientIds(ulong shooterId)
     {
-        var nm = NetworkManager.Singleton;
-        if (nm == null) return new ulong[0];
+        var networkManager = NetworkManager.Singleton;
+        if (networkManager == null)
+            return new ulong[0];
 
         var result = new List<ulong>();
-        foreach (var id in nm.ConnectedClientsIds)
+        foreach (var id in networkManager.ConnectedClientsIds)
         {
             if (id != shooterId)
                 result.Add(id);
@@ -350,5 +338,22 @@ public class WeaponShooter : NetworkBehaviour
     private int GetCurrentDamage()
     {
         return baseDamage + (damageUpgradeLevel * damagePerUpgrade);
+    }
+
+    private Vector3 ResolveFallbackShotDirection()
+    {
+        Ray camRay = ownerCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+
+        Vector3 aimPoint;
+        if (Physics.Raycast(camRay, out RaycastHit camHit, maxAimDistance, aimMask, QueryTriggerInteraction.Ignore))
+            aimPoint = camHit.point;
+        else
+            aimPoint = camRay.origin + camRay.direction * maxAimDistance;
+
+        Vector3 dir = aimPoint - muzzle.position;
+        if (dir.sqrMagnitude < 0.0001f)
+            dir = muzzle.forward;
+
+        return dir.normalized;
     }
 }

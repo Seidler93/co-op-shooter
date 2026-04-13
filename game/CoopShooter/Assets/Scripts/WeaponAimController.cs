@@ -10,11 +10,13 @@ public class WeaponAimController : NetworkBehaviour
 
     [Header("Aim")]
     [SerializeField] private float maxAimDistance = 200f;
+    [SerializeField] private float minimumCameraHitDistance = 4f;
     [SerializeField] private LayerMask aimMask = ~0;
 
     [Header("Smoothing")]
-    [Tooltip("0 = immediate. Try 18–30 for modern TPS.")]
+    [Tooltip("0 = immediate. Try 18-30 for modern TPS.")]
     [SerializeField] private float aimSharpness = 25f;
+    [SerializeField] private float remoteAimSharpness = 20f;
 
     [Tooltip("Prevents the gun from rolling sideways.")]
     [SerializeField] private bool lockRoll = true;
@@ -30,13 +32,17 @@ public class WeaponAimController : NetworkBehaviour
     [SerializeField] private int maxBufferedRemoteShots = 3;
 
     [Header("Aim Sync")]
-    [SerializeField] private float forcedAimSyncInterval = 0.08f;
+    [SerializeField] private float forcedAimSyncInterval = 0.04f;
 
     private Vector2 recoilTarget;
     private Vector2 recoilCurrent;
     private int lastRecoilSeqSeen;
     private Vector2 lastSentAimAngles;
     private float lastAimSyncTime;
+    private Vector2 localAimCurrent;
+    private Vector2 remoteAimCurrent;
+    private bool localAimInitialized;
+    private bool remoteAimInitialized;
 
     private void Awake()
     {
@@ -50,18 +56,27 @@ public class WeaponAimController : NetworkBehaviour
             netAim = GetComponentInParent<NetworkWeaponAim>();
 
         if (netAim != null)
+        {
             lastRecoilSeqSeen = netAim.RecoilSeq.Value;
+            lastSentAimAngles = netAim.WeaponAimAngles.Value;
+            remoteAimCurrent = lastSentAimAngles;
+            remoteAimInitialized = true;
+        }
 
         if (IsOwner && !mainCam)
             mainCam = Camera.main;
 
-        if (netAim != null)
-            lastSentAimAngles = netAim.WeaponAimAngles.Value;
+        if (weaponPivot != null)
+        {
+            localAimCurrent = GetCurrentLocalAimAngles();
+            localAimInitialized = true;
+        }
     }
 
     private void LateUpdate()
     {
-        if (!weaponPivot || !netAim) return;
+        if (!weaponPivot || !netAim)
+            return;
 
         Vector2 angles;
 
@@ -72,63 +87,105 @@ public class WeaponAimController : NetworkBehaviour
             if (!mainCam)
                 return;
 
-            Quaternion desiredWorld = ComputeDesiredWorldRotationFromCameraRay();
-            angles = WorldToLocalAimAngles(desiredWorld);
+            Vector2 desiredAngles = ResolveDesiredLocalAimAngles();
+            angles = SmoothAimAngles(ref localAimCurrent, ref localAimInitialized, desiredAngles, aimSharpness, Time.deltaTime);
 
             SyncAimAnglesIfNeeded(angles);
         }
         else
         {
             ConsumeRemoteRecoilEvents();
-            angles = netAim.WeaponAimAngles.Value;
+            angles = SmoothAimAngles(ref remoteAimCurrent, ref remoteAimInitialized, netAim.WeaponAimAngles.Value, remoteAimSharpness, Time.deltaTime);
             UpdateRemoteRecoil(Time.deltaTime);
         }
 
-        Vector2 total = angles + recoilCurrent;
-        ApplyLocalAimAngles(total);
+        Vector2 totalAngles = angles + recoilCurrent;
+        ApplyLocalAimAngles(totalAngles);
     }
 
-    private Quaternion ComputeDesiredWorldRotationFromCameraRay()
+    public Vector3 ResolveAimPoint(Camera aimCamera, out RaycastHit hitInfo, out bool hasHit)
     {
-        Ray ray = mainCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        hitInfo = default;
+        hasHit = false;
 
-        Vector3 aimPoint = ray.origin + ray.direction * maxAimDistance;
-        if (Physics.Raycast(ray, out RaycastHit hit, maxAimDistance, aimMask, QueryTriggerInteraction.Ignore))
-            aimPoint = hit.point;
+        if (aimCamera == null)
+            return weaponPivot != null
+                ? weaponPivot.position + weaponPivot.forward * maxAimDistance
+                : Vector3.forward * maxAimDistance;
 
+        Ray ray = aimCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        float resolvedDistance = maxAimDistance;
+
+        if (Physics.Raycast(ray, out hitInfo, maxAimDistance, aimMask, QueryTriggerInteraction.Ignore))
+        {
+            hasHit = true;
+            resolvedDistance = Mathf.Max(hitInfo.distance, minimumCameraHitDistance);
+        }
+
+        return ray.origin + ray.direction * resolvedDistance;
+    }
+
+    public Vector3 ResolveShotDirection(Camera aimCamera, Transform shotOrigin)
+    {
+        Vector3 aimPoint = ResolveAimPoint(aimCamera, out _, out _);
+        Vector3 origin = shotOrigin != null
+            ? shotOrigin.position
+            : (weaponMuzzle != null ? weaponMuzzle.position : weaponPivot.position);
+
+        Vector3 direction = aimPoint - origin;
+        if (direction.sqrMagnitude < 0.0001f)
+            direction = shotOrigin != null ? shotOrigin.forward : weaponPivot.forward;
+
+        return direction.normalized;
+    }
+
+    private Vector2 ResolveDesiredLocalAimAngles()
+    {
+        Vector3 aimPoint = ResolveAimPoint(mainCam, out _, out _);
         Vector3 origin = weaponMuzzle ? weaponMuzzle.position : weaponPivot.position;
         Vector3 dir = aimPoint - origin;
         if (dir.sqrMagnitude < 0.0001f)
             dir = weaponPivot.forward;
 
-        Quaternion desired = Quaternion.LookRotation(dir.normalized, Vector3.up);
+        Quaternion desiredWorld = Quaternion.LookRotation(dir.normalized, Vector3.up);
 
         if (lockRoll)
         {
-            Vector3 e = desired.eulerAngles;
-            desired = Quaternion.Euler(NormalizeAngle(e.x), NormalizeAngle(e.y), 0f);
+            Vector3 euler = desiredWorld.eulerAngles;
+            desiredWorld = Quaternion.Euler(NormalizeAngle(euler.x), NormalizeAngle(euler.y), 0f);
         }
 
-        if (aimSharpness <= 0f)
-            return desired;
-
-        float t = 1f - Mathf.Exp(-aimSharpness * Time.deltaTime);
-        return Quaternion.Slerp(weaponPivot.rotation, desired, t);
-    }
-
-    private Vector2 WorldToLocalAimAngles(Quaternion desiredWorld)
-    {
         Transform parent = weaponPivot.parent;
         if (parent == null)
             return Vector2.zero;
 
-        Quaternion local = Quaternion.Inverse(parent.rotation) * desiredWorld;
-        Vector3 e = local.eulerAngles;
+        Quaternion localRotation = Quaternion.Inverse(parent.rotation) * desiredWorld;
+        Vector3 localEuler = localRotation.eulerAngles;
 
-        float pitch = NormalizeAngle(e.x);
-        float yaw = NormalizeAngle(e.y);
+        return new Vector2(
+            NormalizeAngle(localEuler.x),
+            NormalizeAngle(localEuler.y));
+    }
 
-        return new Vector2(pitch, yaw);
+    private Vector2 GetCurrentLocalAimAngles()
+    {
+        Vector3 euler = weaponPivot.localEulerAngles;
+        return new Vector2(NormalizeAngle(euler.x), NormalizeAngle(euler.y));
+    }
+
+    private Vector2 SmoothAimAngles(ref Vector2 current, ref bool initialized, Vector2 target, float sharpness, float dt)
+    {
+        if (!initialized || sharpness <= 0f)
+        {
+            current = target;
+            initialized = true;
+            return current;
+        }
+
+        float t = 1f - Mathf.Exp(-sharpness * dt);
+        current.x = Mathf.LerpAngle(current.x, target.x, t);
+        current.y = Mathf.LerpAngle(current.y, target.y, t);
+        return current;
     }
 
     private void ApplyLocalAimAngles(Vector2 angles)
@@ -139,7 +196,8 @@ public class WeaponAimController : NetworkBehaviour
     private void ConsumeRemoteRecoilEvents()
     {
         int seq = netAim.RecoilSeq.Value;
-        if (seq == lastRecoilSeqSeen) return;
+        if (seq == lastRecoilSeqSeen)
+            return;
 
         Vector2 kick = netAim.RecoilKick.Value;
         int recoilEvents = Mathf.Clamp(seq - lastRecoilSeqSeen, 1, maxBufferedRemoteShots);
@@ -157,8 +215,8 @@ public class WeaponAimController : NetworkBehaviour
 
     private void UpdateRemoteRecoil(float dt)
     {
-        recoilTarget.x = Mathf.MoveTowards(recoilTarget.x, 0f, recoilReturnSpeed * dt);
-        recoilTarget.y = Mathf.MoveTowards(recoilTarget.y, 0f, recoilReturnSpeed * dt);
+        float returnT = 1f - Mathf.Exp(-recoilReturnSpeed * dt);
+        recoilTarget = Vector2.Lerp(recoilTarget, Vector2.zero, returnT);
 
         float smoothT = 1f - Mathf.Exp(-recoilSnappiness * dt);
         recoilCurrent = Vector2.Lerp(recoilCurrent, recoilTarget, smoothT);
@@ -180,10 +238,10 @@ public class WeaponAimController : NetworkBehaviour
         lastAimSyncTime = Time.time;
     }
 
-    private float NormalizeAngle(float a)
+    private float NormalizeAngle(float angle)
     {
-        while (a > 180f) a -= 360f;
-        while (a < -180f) a += 360f;
-        return a;
+        while (angle > 180f) angle -= 360f;
+        while (angle < -180f) angle += 360f;
+        return angle;
     }
 }
