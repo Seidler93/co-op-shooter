@@ -7,6 +7,7 @@ export function useLauncherRuntime() {
     message: "Checking launcher updates on startup...",
   });
   const fallbackTimerRef = useRef(null);
+  const checkForUpdatesRef = useRef(null);
 
   function clearFallbackTimer() {
     if (fallbackTimerRef.current) {
@@ -38,12 +39,47 @@ export function useLauncherRuntime() {
     };
   }, []);
 
-  async function checkForUpdates() {
+  useEffect(() => {
+    checkForUpdatesRef.current = checkForUpdates;
+  });
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        checkForUpdatesRef.current?.({ silent: true });
+      }
+    }, 10 * 60 * 1000);
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        checkForUpdatesRef.current?.({ silent: true });
+      }
+    }
+
+    function handleFocus() {
+      checkForUpdatesRef.current?.({ silent: true });
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
+
+  async function checkForUpdates(options = {}) {
+    const { silent = false } = options;
+
     clearFallbackTimer();
-    setLauncherUpdate({
-      phase: "checking",
-      message: "Checking launcher updates...",
-    });
+    if (!silent) {
+      setLauncherUpdate({
+        phase: "checking",
+        message: "Checking launcher updates...",
+      });
+    }
 
     const result = await window.desktop.launcher.checkForUpdates();
     if (!result?.ok || result?.phase === "dev" || result?.message) {
@@ -52,7 +88,7 @@ export function useLauncherRuntime() {
         phase: result.phase || (result.ok ? "idle" : "error"),
         message: result.message || (result.ok ? "Launcher is up to date." : "Launcher update check failed."),
       });
-    } else {
+    } else if (!silent) {
       fallbackTimerRef.current = window.setTimeout(() => {
         setLauncherUpdate((current) =>
           current.phase === "checking"

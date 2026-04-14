@@ -22,6 +22,7 @@ public class EnemyAI : NetworkBehaviour
     private Health myHealth;
 
     private Health targetHealth;
+    private PlayerHealth targetPlayerHealth;
     private Transform targetTransform;
 
     private float nextRetargetTime;
@@ -64,10 +65,15 @@ public class EnemyAI : NetworkBehaviour
             AcquireClosestLivingPlayer();
         }
 
-        if (targetHealth == null || !targetHealth.IsAlive || targetTransform == null)
+        if (!IsTargetValid(targetHealth, targetPlayerHealth) || targetTransform == null)
         {
-            StopMovement();
-            return;
+            AcquireClosestLivingPlayer();
+
+            if (!IsTargetValid(targetHealth, targetPlayerHealth) || targetTransform == null)
+            {
+                StopMovement();
+                return;
+            }
         }
 
         float dist = Vector3.Distance(transform.position, targetTransform.position);
@@ -98,19 +104,22 @@ public class EnemyAI : NetworkBehaviour
             if (playerObj == null) continue;
 
             var hp = playerObj.GetComponentInChildren<Health>(true);
-            if (hp == null || !hp.IsAlive) continue;
+            var playerHp = playerObj.GetComponent<PlayerHealth>();
+            if (!IsTargetValid(hp, playerHp)) continue;
 
             float sqr = (hp.transform.position - transform.position).sqrMagnitude;
             if (sqr < bestSqr)
             {
                 bestSqr = sqr;
                 closest = hp;
+                targetPlayerHealth = playerHp;
             }
         }
 
         if (closest != targetHealth)
         {
             targetHealth = closest;
+            targetPlayerHealth = closest != null ? closest.GetComponentInParent<PlayerHealth>() : null;
             targetTransform = closest != null ? closest.transform : null;
 
             if (logTargetChanges)
@@ -159,9 +168,23 @@ public class EnemyAI : NetworkBehaviour
         if (Time.time < nextAttackTime) return;
         nextAttackTime = Time.time + attackInterval;
 
-        if (targetHealth != null && targetHealth.IsAlive)
+        if (IsTargetValid(targetHealth, targetPlayerHealth))
         {
             targetHealth.ApplyDamage(attackDamage, 0);
+
+            if (!IsTargetValid(targetHealth, targetPlayerHealth))
+                AcquireClosestLivingPlayer();
         }
+    }
+
+    private bool IsTargetValid(Health hp, PlayerHealth playerHp)
+    {
+        if (hp == null || !hp.IsAlive)
+            return false;
+
+        if (playerHp != null && (playerHp.IsDowned || !playerHp.IsAlive))
+            return false;
+
+        return true;
     }
 }

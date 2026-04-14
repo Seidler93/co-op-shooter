@@ -97,6 +97,7 @@ MonoBehaviour:
   weaponTracer: {fileID: 5015841089879104059}
   weaponAmmo: {fileID: 9097644912799775054}
   playerState: {fileID: 6986508744517089507}
+  weaponAimController: {fileID: 0}
   projectileSpeed: 35
   maxAimDistance: 250
   fireCooldown: 0.12
@@ -132,18 +133,27 @@ MonoBehaviour:
   weaponPivot: {fileID: 5522070811801892635}
   weaponMuzzle: {fileID: 6479072513566796509}
   maxAimDistance: 200
+  minimumCameraHitDistance: 4
   aimMask:
     serializedVersion: 2
     m_Bits: 257
-  aimSharpness: 25
+  minLocalPitch: -35
+  maxLocalPitch: 55
+  maxLocalYaw: 70
   lockRoll: 1
+  aimSharpness: 25
+  remoteAimSharpness: 20
+  minimumShotDistance: 0.35
+  closeRangeBlendEndDistance: 1.25
+  closeRangeBlendStartDistance: 3
+  maxShotAngleFromCamera: 14
   netAim: {fileID: 5136247905005152215}
+  forcedAimSyncInterval: 0.08
   recoilReturnSpeed: 18
   recoilSnappiness: 28
   recoilMaxPitch: 18
   recoilMaxYaw: 8
   maxBufferedRemoteShots: 3
-  forcedAimSyncInterval: 0.08
 --- !u!114 &8677421479112390098
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -937,6 +947,7 @@ GameObject:
   - component: {fileID: 8824206297519405855}
   - component: {fileID: 7687272366176895293}
   - component: {fileID: 3056241524252898234}
+  - component: {fileID: 8021640662500036713}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -998,6 +1009,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c479a0aa0cd9c0744857e017a98f5dbe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMotor
+  disableChildVisualColliders: 1
 --- !u!114 &604687699012427340
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1010,7 +1022,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2560019461
+  GlobalObjectIdHash: 1253330548
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1091,6 +1103,11 @@ MonoBehaviour:
       MinSecondsBetweenUpdates: 0
       MaxSecondsBetweenUpdates: 0
     m_InternalValue: 0
+  Kills:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+    m_InternalValue: 0
 --- !u!114 &3859886096818169934
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1113,6 +1130,14 @@ MonoBehaviour:
   adjustShoulderOffset: 1
   defaultShoulderOffset: {x: 0.55, y: 0.1, z: 0}
   aimShoulderOffset: {x: 0.35, y: 0.1, z: 0}
+  avoidCameraObstruction: 1
+  obstructionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  obstructionRadius: 0.2
+  obstructionBuffer: 0.12
+  minObstructedDistance: 0.75
+  obstructionSharpness: 18
 --- !u!114 &5136247905005152215
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1258,6 +1283,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerHealth
   ShowTopMostFoldoutHeaderGroup: 1
+  enableDownedState: 1
+  downedHP: 1
+  bleedoutDuration: 20
   health: {fileID: 4894989464222161887}
   playerController: {fileID: 666066161801825246}
   playerState: {fileID: 6986508744517089507}
@@ -1336,6 +1364,23 @@ MonoBehaviour:
   deathVolume: 1
   deathPitchMin: 0.96
   deathPitchMax: 1.04
+--- !u!114 &8021640662500036713
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6042401852463695999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 859cb98264003ec4ca3d6423b251e368, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerReviveInteractor
+  ShowTopMostFoldoutHeaderGroup: 1
+  reviveRange: 3
+  reviveDuration: 2
+  playerHealth: {fileID: 8362710128211727279}
+  playerState: {fileID: 6986508744517089507}
 --- !u!1 &6487970761737627794
 GameObject:
   m_ObjectHideFlags: 0

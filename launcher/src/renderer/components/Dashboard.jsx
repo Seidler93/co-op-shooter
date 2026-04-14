@@ -106,6 +106,7 @@ function DashboardHeader({ authState, gameRuntime, onOpenSettings }) {
 function PrimaryActionRail({
   gameRuntime,
   authState,
+  launcherRuntime,
   launcherPlayBlockMessage,
   onPrimaryAction,
   onOpenBetaModal,
@@ -129,6 +130,13 @@ function PrimaryActionRail({
 
   return (
     <aside className="action-rail">
+      <UpdateBanner
+        launcherUpdate={launcherRuntime.launcherUpdate}
+        gameRuntime={gameRuntime}
+        onLauncherDownload={launcherRuntime.downloadUpdate}
+        onLauncherInstall={launcherRuntime.quitAndInstall}
+      />
+
       {gameRuntime.progressState.visible ? (
         <div className="install-progress-card">
           <div className="install-progress-meta">
@@ -182,6 +190,9 @@ function PrimaryActionRail({
             </button>
             <button className="menu-action" onClick={gameRuntime.repairGame}>
               Repair Install
+            </button>
+            <button className="menu-action" onClick={() => gameRuntime.refreshState({ reason: "manual" })}>
+              Check for Game Update
             </button>
             <button className="menu-action" onClick={gameRuntime.copyDiagnostics}>
               Copy Diagnostics
@@ -301,18 +312,11 @@ export default function Dashboard({
         onOpenSettings={onOpenSettings}
       />
 
-      <UpdateBanner
-        launcherUpdate={launcherRuntime.launcherUpdate}
-        gameRuntime={gameRuntime}
-        onLauncherDownload={launcherRuntime.downloadUpdate}
-        onLauncherInstall={launcherRuntime.quitAndInstall}
-        onGameRefresh={gameRuntime.refreshState}
-      />
-
       <div className="dashboard-grid">
         <PrimaryActionRail
           gameRuntime={gameRuntime}
           authState={authState}
+          launcherRuntime={launcherRuntime}
           launcherPlayBlockMessage={launcherPlayBlockMessage}
           onPrimaryAction={onPrimaryAction}
           onOpenBetaModal={onOpenBetaModal}

@@ -1,31 +1,60 @@
-export default function UpdateBanner({ launcherUpdate, gameRuntime, onLauncherDownload, onLauncherInstall, onGameRefresh }) {
-  const showLauncherBanner =
-    launcherUpdate?.phase === "available" ||
-    launcherUpdate?.phase === "downloaded" ||
-    launcherUpdate?.phase === "downloading";
+export default function UpdateBanner({ launcherUpdate, gameRuntime, onLauncherDownload, onLauncherInstall }) {
+  const previewLauncherUpdate =
+    import.meta.env.DEV && !launcherUpdate
+      ? {
+          phase: "available",
+          message: "Launcher 0.1.16 is available.",
+        }
+      : import.meta.env.DEV && launcherUpdate?.phase === "idle"
+        ? {
+            ...launcherUpdate,
+            phase: "available",
+            message: "Launcher 0.1.16 is available.",
+          }
+        : launcherUpdate;
 
-  const showGameUpdateBanner = gameRuntime.gameState?.updateAvailable;
+  const previewGameState =
+    import.meta.env.DEV && !gameRuntime.gameState
+      ? {
+          updateAvailable: true,
+        }
+      : import.meta.env.DEV && !gameRuntime.gameState?.updateAvailable
+        ? {
+            ...gameRuntime.gameState,
+            updateAvailable: true,
+          }
+        : gameRuntime.gameState;
+
+  const showLauncherBanner =
+    previewLauncherUpdate?.phase === "available" ||
+    previewLauncherUpdate?.phase === "downloaded" ||
+    previewLauncherUpdate?.phase === "downloading";
+
+  const showGameUpdateBanner = previewGameState?.updateAvailable;
 
   if (!showLauncherBanner && !showGameUpdateBanner) {
     return null;
   }
 
   return (
-    <div className="banner-stack">
+    <div className="update-card-stack">
       {showLauncherBanner ? (
-        <section className="update-banner panel">
-          <div>
+        <section className="update-card panel">
+          <div className="update-card-copy">
             <p className="eyebrow">Launcher Update</p>
-            <h3>{launcherUpdate.message}</h3>
+            <h3>{previewLauncherUpdate.message || "A launcher update is available."}</h3>
           </div>
-          <div className="button-row">
-            {launcherUpdate.phase === "available" ? (
-              <button className="secondary" onClick={onLauncherDownload}>
+          <div className="update-card-actions">
+            {previewLauncherUpdate.phase === "available" ? (
+              <button className="secondary compact-button" onClick={onLauncherDownload}>
                 Download Update
               </button>
             ) : null}
-            {launcherUpdate.phase === "downloaded" ? (
-              <button className="primary" onClick={onLauncherInstall}>
+            {previewLauncherUpdate.phase === "downloading" ? (
+              <span className="update-card-status">{previewLauncherUpdate.message || "Downloading update..."}</span>
+            ) : null}
+            {previewLauncherUpdate.phase === "downloaded" ? (
+              <button className="primary compact-button" onClick={onLauncherInstall}>
                 Restart to Install
               </button>
             ) : null}
@@ -34,14 +63,11 @@ export default function UpdateBanner({ launcherUpdate, gameRuntime, onLauncherDo
       ) : null}
 
       {showGameUpdateBanner ? (
-        <section className="update-banner panel game-update-banner">
-          <div>
+        <section className="update-card panel game-update-card">
+          <div className="update-card-copy">
             <p className="eyebrow">Game Update</p>
             <h3>A newer build is available for this install.</h3>
           </div>
-          <button className="secondary" onClick={onGameRefresh}>
-            Recheck Status
-          </button>
         </section>
       ) : null}
     </div>

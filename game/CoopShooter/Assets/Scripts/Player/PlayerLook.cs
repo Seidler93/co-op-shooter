@@ -47,7 +47,7 @@ public class PlayerLook : MonoBehaviour
     {
         if (!playerRoot || !camPivot) return;
 
-        if (playerState != null && (playerState.IsDead || playerState.IsInputBlocked))
+        if (playerState != null && (playerState.IsDead || playerState.IsDowned || playerState.IsInputBlocked))
             return;
 
         float mx = lookInput.x * sensitivity;

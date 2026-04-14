@@ -7,6 +7,7 @@ public class PlayerState : MonoBehaviour
     public bool IsMoving { get; private set; }
     public bool IsGrounded { get; private set; }
     public bool IsDead { get; private set; }
+    public bool IsDowned { get; private set; }
     public bool IsFiring { get; private set; }
     public bool IsReloading { get; private set; }
 
@@ -42,6 +43,13 @@ public class PlayerState : MonoBehaviour
         if (IsDead == value) return;
         IsDead = value;
         LogStateChange(nameof(IsDead), value);
+    }
+
+    public void SetDowned(bool value)
+    {
+        if (IsDowned == value) return;
+        IsDowned = value;
+        LogStateChange(nameof(IsDowned), value);
     }
 
     public void SetFiring(bool value)

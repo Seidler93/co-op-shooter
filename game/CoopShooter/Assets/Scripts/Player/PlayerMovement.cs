@@ -35,7 +35,7 @@ public class PlayerMovement : MonoBehaviour
 
     public void SetMoveInput(Vector2 moveInput)
     {
-        if (playerState != null && (playerState.IsDead || playerState.IsInputBlocked))
+        if (playerState != null && (playerState.IsDead || playerState.IsDowned || playerState.IsInputBlocked))
         {
             currentMoveInput = Vector2.zero;
 
@@ -61,7 +61,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void TickMovement(float dt)
     {
-        if (playerState != null && (playerState.IsDead || playerState.IsInputBlocked))
+        if (playerState != null && (playerState.IsDead || playerState.IsDowned || playerState.IsInputBlocked))
         {
             currentMoveInput = Vector2.zero;
             verticalVel = Vector3.zero;

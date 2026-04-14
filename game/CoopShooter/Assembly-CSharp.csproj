@@ -51,11 +51,14 @@
   <ItemGroup>
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_TextEventHandler.cs" />
     <Compile Include="Assets\JMO Assets\WarFX\Demo\Assets\WFX_Demo_RandomDir.cs" />
+    <Compile Include="Assets\Scripts\EnemySpitterAI.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\EnvMapAnimator.cs" />
     <Compile Include="Assets\Scripts\NetworkProjectile.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_TextSelector_A.cs" />
     <Compile Include="Assets\Scripts\Player\CameraController.cs" />
     <Compile Include="Assets\JMO Assets\WarFX\Demo\Assets\CFX_Demo_RotateCamera.cs" />
+    <Compile Include="Assets\Scripts\EnemyExploderAI.cs" />
+    <Compile Include="Assets\Scripts\UI\DownedStateUI.cs" />
     <Compile Include="Assets\Scripts\UI\GameplayMenuUI.cs" />
     <Compile Include="Assets\Scripts\EnemyAI.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\Benchmark02.cs" />
@@ -67,6 +70,7 @@
     <Compile Include="Assets\Scripts\SimpleSpawnManager.cs" />
     <Compile Include="Assets\Scripts\UI\GameplayLeaderboardUI.cs" />
     <Compile Include="Assets\Scripts\UI\FriendProfile.cs" />
+    <Compile Include="Assets\Scripts\Player\PlayerReviveInteractor.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_ExampleScript_01.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMPro_InstructionOverlay.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexShakeB.cs" />
@@ -74,6 +78,7 @@
     <Compile Include="Assets\Scripts\UI\FriendsPanelUI.cs" />
     <Compile Include="Assets\Scripts\GroundSnapOnSpawn.cs" />
     <Compile Include="Assets\Scripts\ShopChest.cs" />
+    <Compile Include="Assets\Scripts\EnemySpawnLane.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexJitter.cs" />
     <Compile Include="Assets\Scripts\UI\PartyManager.cs" />
     <Compile Include="Assets\Scripts\Presentation\HealthAudioFeedback.cs" />
@@ -149,7 +154,9 @@
     <Compile Include="Assets\Scripts\StartMenuUI.cs" />
     <Compile Include="Assets\Scripts\Player\PlayerAnimator.cs" />
     <Compile Include="Assets\Scripts\UI\LeaderboardRowUI.cs" />
+    <Compile Include="Assets\Scripts\ILethalDamageHandler.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TextMeshProFloatingText.cs" />
+    <Compile Include="Assets\Scripts\EnemyBossAI.cs" />
     <Compile Include="Assets\JMO Assets\WarFX\Demo\Assets\CFX_Demo_RandomDir.cs" />
     <Compile Include="Assets\Scripts\RoundUI.cs" />
     <Compile Include="Assets\Scripts\NetworkPlayer.cs" />

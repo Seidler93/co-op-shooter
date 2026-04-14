@@ -8,21 +8,31 @@ public class WeaponAimController : NetworkBehaviour
     [SerializeField] private Transform weaponPivot;
     [SerializeField] private Transform weaponMuzzle;
 
-    [Header("Aim")]
+    [Header("Crosshair Aim")]
     [SerializeField] private float maxAimDistance = 200f;
     [SerializeField] private float minimumCameraHitDistance = 4f;
     [SerializeField] private LayerMask aimMask = ~0;
 
-    [Header("Smoothing")]
+    [Header("Visual Aim Limits")]
+    [SerializeField] private float minLocalPitch = -35f;
+    [SerializeField] private float maxLocalPitch = 55f;
+    [SerializeField] private float maxLocalYaw = 70f;
+    [SerializeField] private bool lockRoll = true;
+
+    [Header("Visual Smoothing")]
     [Tooltip("0 = immediate. Try 18-30 for modern TPS.")]
     [SerializeField] private float aimSharpness = 25f;
     [SerializeField] private float remoteAimSharpness = 20f;
 
-    [Tooltip("Prevents the gun from rolling sideways.")]
-    [SerializeField] private bool lockRoll = true;
+    [Header("Shot Solve")]
+    [SerializeField] private float minimumShotDistance = 0.35f;
+    [SerializeField] private float closeRangeBlendEndDistance = 1.25f;
+    [SerializeField] private float closeRangeBlendStartDistance = 3f;
+    [SerializeField] private float maxShotAngleFromCamera = 14f;
 
     [Header("Networking")]
     [SerializeField] private NetworkWeaponAim netAim;
+    [SerializeField] private float forcedAimSyncInterval = 0.04f;
 
     [Header("Remote Recoil Visuals")]
     [SerializeField] private float recoilReturnSpeed = 18f;
@@ -30,9 +40,6 @@ public class WeaponAimController : NetworkBehaviour
     [SerializeField] private float recoilMaxPitch = 18f;
     [SerializeField] private float recoilMaxYaw = 8f;
     [SerializeField] private int maxBufferedRemoteShots = 3;
-
-    [Header("Aim Sync")]
-    [SerializeField] private float forcedAimSyncInterval = 0.04f;
 
     private Vector2 recoilTarget;
     private Vector2 recoilCurrent;
@@ -78,7 +85,7 @@ public class WeaponAimController : NetworkBehaviour
         if (!weaponPivot || !netAim)
             return;
 
-        Vector2 angles;
+        Vector2 visualAngles;
 
         if (IsOwner)
         {
@@ -87,20 +94,19 @@ public class WeaponAimController : NetworkBehaviour
             if (!mainCam)
                 return;
 
-            Vector2 desiredAngles = ResolveDesiredLocalAimAngles();
-            angles = SmoothAimAngles(ref localAimCurrent, ref localAimInitialized, desiredAngles, aimSharpness, Time.deltaTime);
+            Vector2 desiredAngles = ResolveVisualAimAnglesFromCamera();
+            visualAngles = SmoothAimAngles(ref localAimCurrent, ref localAimInitialized, desiredAngles, aimSharpness, Time.deltaTime);
 
-            SyncAimAnglesIfNeeded(angles);
+            SyncAimAnglesIfNeeded(visualAngles);
         }
         else
         {
             ConsumeRemoteRecoilEvents();
-            angles = SmoothAimAngles(ref remoteAimCurrent, ref remoteAimInitialized, netAim.WeaponAimAngles.Value, remoteAimSharpness, Time.deltaTime);
+            visualAngles = SmoothAimAngles(ref remoteAimCurrent, ref remoteAimInitialized, netAim.WeaponAimAngles.Value, remoteAimSharpness, Time.deltaTime);
             UpdateRemoteRecoil(Time.deltaTime);
         }
 
-        Vector2 totalAngles = angles + recoilCurrent;
-        ApplyLocalAimAngles(totalAngles);
+        ApplyLocalAimAngles(visualAngles + recoilCurrent);
     }
 
     public Vector3 ResolveAimPoint(Camera aimCamera, out RaycastHit hitInfo, out bool hasHit)
@@ -127,27 +133,40 @@ public class WeaponAimController : NetworkBehaviour
 
     public Vector3 ResolveShotDirection(Camera aimCamera, Transform shotOrigin)
     {
+        Vector3 fallbackForward = shotOrigin != null
+            ? shotOrigin.forward
+            : (weaponPivot != null ? weaponPivot.forward : Vector3.forward);
+
+        Vector3 cameraForward = GetCameraForwardDirection(aimCamera, fallbackForward);
         Vector3 aimPoint = ResolveAimPoint(aimCamera, out _, out _);
+
         Vector3 origin = shotOrigin != null
             ? shotOrigin.position
             : (weaponMuzzle != null ? weaponMuzzle.position : weaponPivot.position);
 
-        Vector3 direction = aimPoint - origin;
-        if (direction.sqrMagnitude < 0.0001f)
-            direction = shotOrigin != null ? shotOrigin.forward : weaponPivot.forward;
+        Vector3 directionToAimPoint = aimPoint - origin;
+        if (directionToAimPoint.sqrMagnitude < (minimumShotDistance * minimumShotDistance))
+            return cameraForward;
 
-        return direction.normalized;
+        Vector3 shotDirection = directionToAimPoint.normalized;
+        float targetDistance = directionToAimPoint.magnitude;
+        float closeBlend = Mathf.InverseLerp(closeRangeBlendEndDistance, closeRangeBlendStartDistance, targetDistance);
+        shotDirection = Vector3.Slerp(cameraForward, shotDirection, closeBlend);
+
+        float angleFromCamera = Vector3.Angle(cameraForward, shotDirection);
+        if (angleFromCamera > maxShotAngleFromCamera && angleFromCamera > 0.001f)
+        {
+            float clampT = maxShotAngleFromCamera / angleFromCamera;
+            shotDirection = Vector3.Slerp(cameraForward, shotDirection, clampT);
+        }
+
+        return shotDirection.normalized;
     }
 
-    private Vector2 ResolveDesiredLocalAimAngles()
+    private Vector2 ResolveVisualAimAnglesFromCamera()
     {
-        Vector3 aimPoint = ResolveAimPoint(mainCam, out _, out _);
-        Vector3 origin = weaponMuzzle ? weaponMuzzle.position : weaponPivot.position;
-        Vector3 dir = aimPoint - origin;
-        if (dir.sqrMagnitude < 0.0001f)
-            dir = weaponPivot.forward;
-
-        Quaternion desiredWorld = Quaternion.LookRotation(dir.normalized, Vector3.up);
+        Vector3 cameraForward = GetCameraForwardDirection(mainCam, weaponPivot != null ? weaponPivot.forward : Vector3.forward);
+        Quaternion desiredWorld = Quaternion.LookRotation(cameraForward, Vector3.up);
 
         if (lockRoll)
         {
@@ -162,9 +181,9 @@ public class WeaponAimController : NetworkBehaviour
         Quaternion localRotation = Quaternion.Inverse(parent.rotation) * desiredWorld;
         Vector3 localEuler = localRotation.eulerAngles;
 
-        return new Vector2(
-            NormalizeAngle(localEuler.x),
-            NormalizeAngle(localEuler.y));
+        float pitch = Mathf.Clamp(NormalizeAngle(localEuler.x), minLocalPitch, maxLocalPitch);
+        float yaw = Mathf.Clamp(NormalizeAngle(localEuler.y), -maxLocalYaw, maxLocalYaw);
+        return new Vector2(pitch, yaw);
     }
 
     private Vector2 GetCurrentLocalAimAngles()
@@ -236,6 +255,14 @@ public class WeaponAimController : NetworkBehaviour
         netAim.OwnerSetAimAngles(angles);
         lastSentAimAngles = angles;
         lastAimSyncTime = Time.time;
+    }
+
+    private Vector3 GetCameraForwardDirection(Camera aimCamera, Vector3 fallbackDirection)
+    {
+        if (aimCamera == null)
+            return fallbackDirection.normalized;
+
+        return aimCamera.transform.forward.normalized;
     }
 
     private float NormalizeAngle(float angle)

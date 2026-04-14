@@ -11,6 +11,9 @@ public class PlayerController : MonoBehaviour
 
     public float PlanarSpeed => Movement != null ? Movement.PlanarSpeed : 0f;
 
+    [Header("Collision")]
+    [SerializeField] private bool disableChildVisualColliders = true;
+
     private void Awake()
     {
         Movement = GetComponent<PlayerMovement>();
@@ -18,6 +21,9 @@ public class PlayerController : MonoBehaviour
         Health = GetComponent<PlayerHealth>();
         State = GetComponent<PlayerState>();
         Refs = GetComponent<PlayerRefs>();
+
+        if (disableChildVisualColliders)
+            DisableChildVisualColliders();
     }
 
     public void SetGameplayInputBlocked(bool blocked)
@@ -32,6 +38,23 @@ public class PlayerController : MonoBehaviour
             State.SetAiming(false);
             State.SetFiring(false);
             State.SetReloading(false);
+        }
+    }
+
+    private void DisableChildVisualColliders()
+    {
+        Collider[] childColliders = GetComponentsInChildren<Collider>(true);
+
+        for (int i = 0; i < childColliders.Length; i++)
+        {
+            Collider collider = childColliders[i];
+            if (collider == null)
+                continue;
+
+            if (collider.transform == transform)
+                continue;
+
+            collider.enabled = false;
         }
     }
 }

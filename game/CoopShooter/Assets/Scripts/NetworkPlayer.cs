@@ -81,10 +81,17 @@ public class NetworkPlayer : NetworkBehaviour
 
         var ammo = GetComponentInChildren<WeaponAmmoNetcode>(true);
         var hud = FindFirstObjectByType<AmmoHUDNetcode>();
+        var downedUi = FindFirstObjectByType<DownedStateUI>();
+        var playerHealth = GetComponent<PlayerHealth>();
 
         if (ammo != null && hud != null)
         {
             hud.Bind(ammo);
+        }
+
+        if (downedUi != null && playerHealth != null)
+        {
+            downedUi.BindLocalPlayer(playerHealth);
         }
     }
 

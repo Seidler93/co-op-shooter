@@ -9,6 +9,7 @@ export function useGameRuntime({ isAuthenticated, hasBetaAccess }) {
   const [installPhase, setInstallPhase] = useState("idle");
   const [statusMessage, setStatusMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [lastRefreshReason, setLastRefreshReason] = useState("");
 
   useEffect(() => {
     const releaseInstall = window.desktop.game.onInstallStatus((payload) => {
@@ -59,15 +60,51 @@ export function useGameRuntime({ isAuthenticated, hasBetaAccess }) {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      return;
+      return undefined;
     }
 
     refreshState();
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        refreshState({ silent: true, reason: "background" });
+      }
+    }, 10 * 60 * 1000);
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        refreshState({ silent: true, reason: "focus" });
+      }
+    }
+
+    function handleFocus() {
+      refreshState({ silent: true, reason: "focus" });
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
   }, [isAuthenticated]);
 
-  async function refreshState() {
+  async function refreshState(options = {}) {
+    const { silent = false, reason = "manual" } = options;
     const state = await window.desktop.game.checkForUpdates();
     setGameState(state);
+
+    if (!silent) {
+      if (state?.updateAvailable) {
+        setStatusMessage(`Game update ${state.remote?.version || ""} is available.`.trim());
+      } else if (reason === "manual") {
+        setStatusMessage("Game is up to date.");
+      }
+    }
+
+    setLastRefreshReason(reason);
     return state;
   }
 
@@ -259,6 +296,7 @@ export function useGameRuntime({ isAuthenticated, hasBetaAccess }) {
         !busy && isAuthenticated,
       gameDescription: GAME_DESCRIPTION,
       patchNotes,
+      lastRefreshReason,
       chooseInstallDirectory: async () => {
         const result = await window.desktop.game.chooseInstallDirectory();
         if (result.ok) {
@@ -290,6 +328,7 @@ export function useGameRuntime({ isAuthenticated, hasBetaAccess }) {
       isAuthenticated,
       hasBetaAccess,
       patchNotes,
+      lastRefreshReason,
     ]
   );
 }

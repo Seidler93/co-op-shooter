@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class Health : NetworkBehaviour
 {
+    private ILethalDamageHandler[] lethalDamageHandlers;
+
     [Header("Health")]
     [SerializeField] private int maxHP = 100;
 
@@ -36,6 +38,8 @@ public class Health : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        lethalDamageHandlers = GetComponents<ILethalDamageHandler>();
+
         if (IsServer)
         {
             if (CurrentHP.Value <= 0)
@@ -99,12 +103,35 @@ public class Health : NetworkBehaviour
             Debug.Log($"[SERVER] Applying {amount} damage to {name} from client {attackerClientId}");
         }
 
+        if (next <= 0 && TryHandleLethalDamage(amount, attackerClientId))
+        {
+            return;
+        }
+
         CurrentHP.Value = next;
 
         if (next <= 0)
         {
             HandleDeathServer();
         }
+    }
+
+    private bool TryHandleLethalDamage(int amount, ulong attackerClientId)
+    {
+        if (lethalDamageHandlers == null || lethalDamageHandlers.Length == 0)
+            return false;
+
+        for (int i = 0; i < lethalDamageHandlers.Length; i++)
+        {
+            ILethalDamageHandler handler = lethalDamageHandlers[i];
+            if (handler == null)
+                continue;
+
+            if (handler.TryHandleLethalDamage(this, amount, attackerClientId))
+                return true;
+        }
+
+        return false;
     }
 
     private void HandleDeathServer()
@@ -154,6 +181,31 @@ public class Health : NetworkBehaviour
         {
             EnableObjectClientRpc();
         }
+    }
+
+    public void ResetToValue(int hpValue)
+    {
+        if (!IsServer) return;
+
+        CurrentHP.Value = Mathf.Clamp(hpValue, 1, maxHP);
+        hasLastAttacker = false;
+        lastAttackerClientId = 0;
+
+        if (disableOnDeath)
+        {
+            EnableObjectClientRpc();
+        }
+    }
+
+    public void ForceDeath(ulong attackerClientId = 0, bool attackerProvided = false)
+    {
+        if (!IsServer) return;
+        if (!IsAlive) return;
+
+        hasLastAttacker = attackerProvided;
+        lastAttackerClientId = attackerClientId;
+        CurrentHP.Value = 0;
+        HandleDeathServer();
     }
 
     [ClientRpc]

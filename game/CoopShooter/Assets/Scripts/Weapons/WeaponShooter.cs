@@ -90,7 +90,7 @@ public class WeaponShooter : NetworkBehaviour
         if (!IsOwner) return;
         if (muzzle == null || projectilePrefab == null) return;
 
-        if (playerState != null && (playerState.IsDead || playerState.IsInputBlocked))
+        if (playerState != null && (playerState.IsDead || playerState.IsDowned || playerState.IsInputBlocked))
         {
             playerState.SetFiring(false);
             return;
@@ -129,7 +129,7 @@ public class WeaponShooter : NetworkBehaviour
     {
         if (!IsOwner) return;
 
-        if (playerState != null && (playerState.IsDead || playerState.IsInputBlocked))
+        if (playerState != null && (playerState.IsDead || playerState.IsDowned || playerState.IsInputBlocked))
             return;
 
         weaponRecoil?.TickRecoil(Time.deltaTime, fireHeld);
@@ -137,7 +137,7 @@ public class WeaponShooter : NetworkBehaviour
 
     public void SetFireInput(bool held, bool pressedThisFrame)
     {
-        if (playerState != null && (playerState.IsDead || playerState.IsInputBlocked))
+        if (playerState != null && (playerState.IsDead || playerState.IsDowned || playerState.IsInputBlocked))
         {
             fireHeld = false;
             firePressedThisFrame = false;
