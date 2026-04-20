@@ -446,6 +446,19 @@ p {
   box-shadow: 0 18px 36px rgba(0, 0, 0, 0.34);
 }
 
+.screen-frame-shell {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: 1fr;
+  gap: 12px;
+  height: 100%;
+}
+
+.screen-frame-shell.has-topbar {
+  grid-template-rows: auto 1fr;
+}
+
 .screen-backdrop,
 .screen-frame::after,
 .screen-frame::before {
@@ -497,11 +510,10 @@ p {
 }
 
 .screen-grid {
-  position: relative;
-  z-index: 1;
   display: grid;
   gap: 12px;
   height: 100%;
+  min-height: 0;
 }
 
 .screen-grid-main {
@@ -510,7 +522,7 @@ p {
 }
 
 .screen-grid-lobby {
-  grid-template-columns: minmax(340px, 0.95fr) minmax(420px, 1.2fr);
+  grid-template-columns: 1fr;
   align-items: stretch;
 }
 
@@ -519,9 +531,70 @@ p {
   align-items: start;
 }
 
+.screen-grid-loadout-rework {
+  grid-template-columns: 220px minmax(0, 1fr) minmax(300px, 0.78fr);
+  align-items: stretch;
+}
+
 .screen-grid-campaign {
   grid-template-columns: 240px minmax(0, 1.2fr) 240px;
   align-items: stretch;
+}
+
+.screen-grid-barracks {
+  grid-template-columns: 240px minmax(0, 1.1fr) 240px;
+  align-items: stretch;
+}
+
+.screen-grid-social {
+  grid-template-columns: minmax(320px, 0.95fr) minmax(360px, 1.05fr);
+  align-items: stretch;
+}
+
+.screen-grid-settings {
+  grid-template-columns: 220px minmax(0, 1.15fr) 260px;
+  align-items: start;
+}
+
+.screen-topbar {
+  min-height: 0;
+}
+
+.utility-nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.utility-nav-button {
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.66rem;
+  font-weight: 700;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.utility-nav-button:hover,
+.utility-nav-button.is-active {
+  color: var(--text);
+  border-color: rgba(216, 75, 61, 0.28);
+  background:
+    linear-gradient(135deg, rgba(216, 75, 61, 0.12), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.04);
+}
+
+.utility-nav-button:hover {
+  transform: translateY(-1px);
 }
 
 .ui-panel {
@@ -1071,6 +1144,7 @@ p {
 .tab-stack,
 .summary-bars,
 .lobby-actions,
+.lobby-player-grid,
 .campaign-nav-list,
 .campaign-side-stack,
 .campaign-checklist,
@@ -1092,6 +1166,59 @@ p {
     transform 180ms ease,
     border-color 180ms ease,
     background 180ms ease;
+}
+
+.lobby-player-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.lobby-player-card {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100%;
+  align-content: start;
+}
+
+.lobby-player-card .panel-heading {
+  margin-bottom: 12px;
+}
+
+.lobby-player-loadout {
+  display: grid;
+  gap: 8px;
+}
+
+.lobby-loadout-row {
+  display: grid;
+  gap: 4px;
+  padding: 10px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.lobby-loadout-row span {
+  color: var(--muted);
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.lobby-loadout-row strong {
+  font-size: 0.84rem;
+  line-height: 1.3;
+}
+
+.lobby-player-card.is-host {
+  border-color: rgba(216, 75, 61, 0.24);
+}
+
+.lobby-player-card.is-ready {
+  border-color: rgba(127, 207, 122, 0.24);
+}
+
+.lobby-player-card.is-empty {
+  opacity: 0.72;
 }
 
 .player-slot strong,
@@ -1400,6 +1527,73 @@ p {
   clip-path: polygon(12% 58%, 28% 30%, 48% 30%, 58% 12%, 94% 12%, 94% 26%, 68% 26%, 64% 44%, 76% 58%, 70% 100%, 56% 100%, 52% 68%, 32% 68%, 28% 100%, 14% 100%, 20% 58%);
 }
 
+.attachment-muzzle {
+  width: 42px;
+  height: 14px;
+  background: linear-gradient(90deg, rgba(214, 220, 230, 0.9), rgba(112, 121, 137, 0.72));
+  clip-path: polygon(0 36%, 74% 36%, 100% 12%, 100% 88%, 74% 64%, 0 64%);
+}
+
+.attachment-barrel {
+  width: 66px;
+  height: 12px;
+  background: linear-gradient(90deg, rgba(214, 220, 230, 0.88), rgba(112, 121, 137, 0.7));
+  clip-path: polygon(0 40%, 90% 40%, 100% 28%, 100% 72%, 90% 60%, 0 60%);
+}
+
+.attachment-optic {
+  width: 34px;
+  height: 26px;
+  background: linear-gradient(180deg, rgba(214, 220, 230, 0.92), rgba(112, 121, 137, 0.72));
+  clip-path: polygon(14% 22%, 66% 22%, 86% 40%, 86% 66%, 60% 66%, 60% 100%, 38% 100%, 38% 66%, 14% 66%);
+}
+
+.attachment-magazine,
+.attachment-ammo-feed,
+.attachment-ammo {
+  width: 24px;
+  height: 34px;
+  background: linear-gradient(180deg, rgba(214, 220, 230, 0.9), rgba(112, 121, 137, 0.72));
+  clip-path: polygon(14% 0, 86% 0, 100% 100%, 0 100%);
+}
+
+.attachment-underbarrel {
+  width: 38px;
+  height: 24px;
+  background: linear-gradient(180deg, rgba(214, 220, 230, 0.9), rgba(112, 121, 137, 0.72));
+  clip-path: polygon(18% 0, 62% 0, 80% 28%, 100% 28%, 100% 46%, 72% 46%, 72% 100%, 44% 100%, 44% 46%, 18% 46%);
+}
+
+.attachment-laser {
+  width: 38px;
+  height: 16px;
+  background: linear-gradient(90deg, rgba(214, 220, 230, 0.9), rgba(112, 121, 137, 0.72));
+  clip-path: polygon(0 36%, 82% 36%, 100% 50%, 82% 64%, 0 64%);
+}
+
+.attachment-stock {
+  width: 40px;
+  height: 28px;
+  background: linear-gradient(180deg, rgba(214, 220, 230, 0.92), rgba(112, 121, 137, 0.72));
+  clip-path: polygon(16% 0, 78% 0, 100% 18%, 74% 18%, 74% 100%, 40% 100%, 40% 42%, 16% 42%);
+}
+
+.attachment-rear-grip {
+  width: 24px;
+  height: 28px;
+  background: linear-gradient(180deg, rgba(214, 220, 230, 0.92), rgba(112, 121, 137, 0.72));
+  clip-path: polygon(30% 0, 100% 0, 68% 100%, 0 100%);
+}
+
+.attachment-bipod {
+  width: 42px;
+  height: 28px;
+  background:
+    linear-gradient(90deg, transparent 46%, rgba(214, 220, 230, 0.92) 46% 54%, transparent 54%),
+    linear-gradient(180deg, rgba(214, 220, 230, 0.92), rgba(112, 121, 137, 0.72));
+  clip-path: polygon(46% 0, 54% 0, 58% 22%, 100% 100%, 78% 100%, 50% 34%, 22% 100%, 0 100%, 42% 22%);
+}
+
 .campaign-perk-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1470,6 +1664,64 @@ p {
 .campaign-social-list {
   display: grid;
   gap: 4px;
+}
+
+.barracks-main-column,
+.barracks-stat-grid,
+.barracks-unlock-list,
+.settings-option-list {
+  display: grid;
+  gap: 12px;
+}
+
+.barracks-main-column {
+  align-content: start;
+}
+
+.barracks-avatar-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.barracks-avatar {
+  width: 88px;
+  height: 88px;
+  font-size: 1.1rem;
+}
+
+.barracks-tag-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.barracks-stat-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.barracks-stat-tile {
+  padding: 14px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.barracks-stat-tile span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.barracks-stat-tile strong {
+  font-size: 1rem;
+}
+
+.barracks-side-card,
+.settings-panel-card {
+  align-self: start;
 }
 
 .action-row,
@@ -1576,6 +1828,453 @@ p {
   gap: var(--space-4);
 }
 
+.loadout-presets-card,
+.loadout-overview-card,
+.loadout-stats-card,
+.armory-browser-card,
+.armory-detail-card {
+  min-height: 100%;
+}
+
+.loadout-stats-card {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 14px;
+}
+
+.loadout-preset-list,
+.armory-weapon-list,
+.armory-simple-list,
+.armory-attachment-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.loadout-preset-button,
+.armory-weapon-card,
+.loadout-option-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease;
+}
+
+.loadout-preset-button {
+  display: grid;
+  gap: 6px;
+  padding: 12px 10px;
+}
+
+.loadout-preset-button span,
+.loadout-preset-button em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.loadout-preset-button span {
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.loadout-preset-button strong,
+.loadout-option-card strong,
+.armory-weapon-card strong {
+  display: block;
+}
+
+.loadout-preset-button.is-active,
+.armory-weapon-card.is-selected,
+.loadout-option-card:hover {
+  border-color: rgba(216, 75, 61, 0.32);
+  background:
+    linear-gradient(135deg, rgba(216, 75, 61, 0.14), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.04);
+}
+
+.loadout-options-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.loadout-option-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.loadout-option-card.tone-large {
+  min-height: 200px;
+}
+
+.loadout-option-card.tone-medium {
+  min-height: 148px;
+}
+
+.loadout-option-card.tone-perks {
+  min-height: 170px;
+}
+
+.loadout-option-card .panel-kicker {
+  margin-bottom: 8px;
+}
+
+.loadout-option-card .armory-slot-visual {
+  min-height: 112px;
+}
+
+.loadout-option-card.tone-medium .armory-slot-visual {
+  min-height: 72px;
+}
+
+.loadout-option-card.tone-perks .loadout-perk-icons {
+  align-self: end;
+}
+
+.loadout-perk-icons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.loadout-perk-icons .campaign-perk-icon {
+  min-height: 64px;
+}
+
+.armory-browser-card {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 12px;
+}
+
+.armory-class-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.armory-weapon-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+}
+
+.armory-weapon-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px 12px;
+}
+
+.armory-weapon-card span:last-child {
+  color: var(--muted);
+}
+
+.weapon-card-preview {
+  position: relative;
+  min-height: 84px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 56%),
+    rgba(8, 11, 16, 0.74);
+  overflow: hidden;
+}
+
+.weapon-card-preview::before,
+.weapon-card-preview::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.weapon-card-preview::before {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.032) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0.52;
+}
+
+.weapon-card-preview::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+  transform: translateX(-45%);
+}
+
+.weapon-card-preview-frame {
+  position: relative;
+  min-height: 84px;
+}
+
+.weapon-card-preview-frame .campaign-item-silhouette {
+  transform: scale(0.88);
+  transform-origin: center;
+}
+
+.weapon-preview-balanced {
+  background:
+    radial-gradient(circle at 18% 24%, rgba(123, 179, 255, 0.18), transparent 28%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 56%),
+    rgba(8, 11, 16, 0.74);
+}
+
+.weapon-preview-heavy {
+  background:
+    radial-gradient(circle at 78% 22%, rgba(216, 75, 61, 0.18), transparent 26%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 56%),
+    rgba(8, 11, 16, 0.74);
+}
+
+.weapon-preview-close {
+  background:
+    radial-gradient(circle at 24% 76%, rgba(255, 180, 84, 0.18), transparent 28%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 56%),
+    rgba(8, 11, 16, 0.74);
+}
+
+.weapon-preview-braced {
+  background:
+    radial-gradient(circle at 74% 68%, rgba(127, 207, 122, 0.16), transparent 28%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 56%),
+    rgba(8, 11, 16, 0.74);
+}
+
+.weapon-preview-precision {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(123, 179, 255, 0.16), transparent 24%),
+    radial-gradient(circle at 84% 82%, rgba(216, 75, 61, 0.12), transparent 20%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 56%),
+    rgba(8, 11, 16, 0.74);
+}
+
+.armory-detail-card {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  gap: 12px;
+  min-height: 0;
+}
+
+.weapon-attribute-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.weapon-attribute-card {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.weapon-attribute-card span {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.weapon-attribute-card strong {
+  font-size: 1rem;
+}
+
+.armory-attachment-card {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.armory-attachment-visual {
+  min-height: 62px;
+}
+
+.armory-attachment-copy {
+  display: grid;
+  gap: 4px;
+  align-content: center;
+}
+
+.armory-attachment-copy span {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.64rem;
+}
+
+.armory-attachment-copy strong {
+  font-size: 0.8rem;
+}
+
+.armory-attachment-copy em {
+  color: var(--accent-cold);
+  font-style: normal;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.armory-attachment-slot-button,
+.armory-attachment-option {
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease;
+}
+
+.armory-attachment-slot-button:hover,
+.armory-attachment-option:hover,
+.armory-attachment-slot-button.is-selected,
+.armory-attachment-option.is-selected {
+  border-color: rgba(216, 75, 61, 0.32);
+  background:
+    linear-gradient(135deg, rgba(216, 75, 61, 0.14), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.04);
+}
+
+.armory-attachment-slot-button:hover,
+.armory-attachment-option:hover {
+  transform: translateY(-1px);
+}
+
+.armory-attachment-slot-button .armory-attachment-card,
+.armory-attachment-option .armory-attachment-card {
+  border: 0;
+  background: transparent;
+}
+
+.armory-attachment-option-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
+}
+
+.armory-attachment-option-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-content: start;
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.armory-gunsmith-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+  gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.armory-gunsmith-layout .armory-attachment-stack,
+.armory-gunsmith-layout .armory-attachment-option-panel {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.armory-detail-copy p {
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.perk-detail-card {
+  grid-template-rows: auto auto auto auto auto;
+}
+
+.perk-selection-list {
+  align-content: start;
+}
+
+.perk-detail-copy,
+.perk-variant-list,
+.perk-equipped-summary {
+  display: grid;
+  gap: 8px;
+}
+
+.perk-variant-list > strong,
+.perk-capacity-row strong {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.perk-capacity-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.equipped-perk-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.armory-slot-visual {
+  position: relative;
+  min-height: 150px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
+    rgba(255, 255, 255, 0.025);
+  overflow: hidden;
+}
+
+.armory-slot-visual::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.016) 1px, transparent 1px);
+  background-size: 18px 18px;
+  opacity: 0.4;
+}
+
+.armory-slot-visual .campaign-item-silhouette {
+  transform: scale(1.15);
+}
+
+.armory-attachment-slot {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.armory-attachment-slot span {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.64rem;
+}
+
+.armory-attachment-slot strong {
+  font-size: 0.72rem;
+}
+
 .slot-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -1662,6 +2361,10 @@ p {
   .screen-grid-main,
   .screen-grid-lobby,
   .screen-grid-loadout,
+  .screen-grid-loadout-rework,
+  .screen-grid-barracks,
+  .screen-grid-social,
+  .screen-grid-settings,
   .slot-grid,
   .item-card-grid {
     grid-template-columns: 1fr;
@@ -1671,6 +2374,27 @@ p {
     min-height: auto;
     aspect-ratio: auto;
     padding: 24px;
+  }
+
+  .lobby-player-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .loadout-options-grid,
+  .armory-weapon-list {
+    grid-template-columns: 1fr;
+  }
+
+  .weapon-attribute-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .armory-gunsmith-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .armory-attachment-option-list {
+    grid-template-columns: 1fr;
   }
 
   .news-card-inline,
