@@ -1836,10 +1836,51 @@ p {
   min-height: 100%;
 }
 
+.loadout-shell {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) minmax(300px, 0.78fr);
+  gap: 0;
+  min-height: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 100%),
+    var(--panel-soft);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+.loadout-shell > .ui-panel {
+  min-height: 100%;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.loadout-shell > .ui-panel::before {
+  display: none;
+}
+
+.loadout-shell > .ui-panel:not(:last-child) {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .loadout-stats-card {
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: 14px;
+}
+
+.gunsmith-overview-card {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.loadout-overview-actions {
+  display: flex;
+  justify-content: flex-start;
 }
 
 .loadout-preset-list,
@@ -2058,6 +2099,10 @@ p {
   min-height: 0;
 }
 
+.armory-detail-card-compact {
+  grid-template-rows: auto auto auto auto auto;
+}
+
 .weapon-attribute-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2193,6 +2238,32 @@ p {
   margin-bottom: 0;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.weapon-summary-card {
+  grid-template-rows: auto auto 1fr auto;
+}
+
+.weapon-summary-bars .summary-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 36px;
+  gap: 10px;
+  align-items: center;
+}
+
+.weapon-summary-bars .summary-row strong {
+  justify-self: end;
+  font-size: 0.82rem;
+}
+
+.weapon-summary-note {
+  display: grid;
+  gap: 6px;
+}
+
+.weapon-summary-note p {
+  margin-bottom: 0;
+  color: var(--muted);
 }
 
 .perk-detail-card {
@@ -2383,6 +2454,15 @@ p {
   .loadout-options-grid,
   .armory-weapon-list {
     grid-template-columns: 1fr;
+  }
+
+  .loadout-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .loadout-shell > .ui-panel:not(:last-child) {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .weapon-attribute-grid {

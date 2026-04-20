@@ -25,10 +25,10 @@ const campaignOperations = [
   }
 ];
 
-export default function CampaignScreen({ onBack, playerSlots }) {
+export default function CampaignScreen({ onBack, playerSlots, topBar }) {
   return (
     <section className="game-screen is-active" id="campaign-screen">
-      <ScreenFrame backdropClassName="backdrop-lobby" gridClassName="screen-grid-campaign">
+      <ScreenFrame backdropClassName="backdrop-lobby" gridClassName="screen-grid-campaign" topBar={topBar}>
         <Panel className="campaign-nav-card">
           <PanelHeading kicker="Campaign" title="Operations" status={<StatusPill tone="warning">1 Active</StatusPill>} />
           <div className="campaign-nav-list">

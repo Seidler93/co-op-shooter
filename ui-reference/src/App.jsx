@@ -1,27 +1,52 @@
 import { useEffect, useRef, useState } from "react";
 import ScreenTabs from "./components/ScreenTabs";
+import UtilityNav from "./components/UtilityNav";
+import BarracksScreen from "./screens/BarracksScreen";
 import CampaignScreen from "./screens/CampaignScreen";
 import MainMenuScreen from "./screens/MainMenuScreen";
 import OnlineLobbyScreen from "./screens/OnlineLobbyScreen";
 import LoadoutScreen from "./screens/LoadoutScreen";
+import SettingsScreen from "./screens/SettingsScreen";
+import SocialScreen from "./screens/SocialScreen";
 import {
+  armoryWeapons,
+  customLoadouts,
+  equipmentOptions,
+  fieldUpgradeOptions,
   itemCards,
   loadoutCategories,
+  loadoutOptionCards,
   loadoutSlots,
   missionDifficulties,
   newsItems,
+  perkCatalog,
+  perkTypeTabs,
   playerSlots,
   profileStats,
   screenTabs,
-  summaryStats
+  summaryStats,
+  weaponClassTabs
 } from "./data";
 
 const screenRegistry = {
+  "barracks-screen": BarracksScreen,
   "campaign-screen": CampaignScreen,
   "main-menu": MainMenuScreen,
   "online-lobby": OnlineLobbyScreen,
-  "loadout-screen": LoadoutScreen
+  "loadout-screen": LoadoutScreen,
+  "settings-screen": SettingsScreen,
+  "social-screen": SocialScreen
 };
+
+const utilityNavItems = [
+  { id: "main-menu", label: "Home" },
+  { id: "campaign-screen", label: "Campaign" },
+  { id: "online-lobby", label: "Lobby" },
+  { id: "loadout-screen", label: "Loadout" },
+  { id: "barracks-screen", label: "Barracks" },
+  { id: "social-screen", label: "Social" },
+  { id: "settings-screen", label: "Settings" }
+];
 
 export default function App() {
   const [activeScreen, setActiveScreen] = useState("main-menu");
@@ -29,6 +54,10 @@ export default function App() {
   const [isStageFullscreen, setIsStageFullscreen] = useState(false);
   const stageRef = useRef(null);
   const ActiveScreen = screenRegistry[activeScreen];
+  const utilityNav =
+    activeScreen === "main-menu" ? null : (
+      <UtilityNav activeScreen={activeScreen} items={utilityNavItems} onSelect={setActiveScreen} />
+    );
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -92,6 +121,7 @@ export default function App() {
           <div className="screen-stage" ref={stageRef}>
             <ActiveScreen
               onBack={() => setActiveScreen("main-menu")}
+              onNavigate={setActiveScreen}
               onOpenCampaign={() => setActiveScreen("campaign-screen")}
               profileStats={profileStats}
               newsItems={newsItems}
@@ -99,10 +129,19 @@ export default function App() {
               missionDifficulties={missionDifficulties}
               isReady={isReady}
               onToggleReady={() => setIsReady((current) => !current)}
+              armoryWeapons={armoryWeapons}
+              customLoadouts={customLoadouts}
+              equipmentOptions={equipmentOptions}
+              fieldUpgradeOptions={fieldUpgradeOptions}
               loadoutCategories={loadoutCategories}
+              loadoutOptionCards={loadoutOptionCards}
               loadoutSlots={loadoutSlots}
               itemCards={itemCards}
+              perkCatalog={perkCatalog}
+              perkTypeTabs={perkTypeTabs}
               summaryStats={summaryStats}
+              topBar={utilityNav}
+              weaponClassTabs={weaponClassTabs}
             />
           </div>
         </section>

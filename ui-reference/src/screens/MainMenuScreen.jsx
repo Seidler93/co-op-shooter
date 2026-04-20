@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import ScreenFrame from "../components/ScreenFrame";
 import { Panel, PanelHeading, StatusPill } from "../components/Panel";
 
-export default function MainMenuScreen({ onOpenCampaign, profileStats, newsItems, playerSlots }) {
+export default function MainMenuScreen({ onNavigate, onOpenCampaign, profileStats, newsItems, playerSlots }) {
   const noteGroups = [
     {
       id: "patch",
@@ -63,7 +63,17 @@ export default function MainMenuScreen({ onOpenCampaign, profileStats, newsItems
                 key={label}
                 className="menu-button"
                 type="button"
-                onClick={label === "Campaign" ? onOpenCampaign : undefined}
+                onClick={() => {
+                  if (label === "Campaign") {
+                    onOpenCampaign();
+                  } else if (label === "Barracks") {
+                    onNavigate("barracks-screen");
+                  } else if (label === "Social") {
+                    onNavigate("social-screen");
+                  } else if (label === "Settings") {
+                    onNavigate("settings-screen");
+                  }
+                }}
               >
                 {label}
               </button>

@@ -1,77 +1,69 @@
 import ScreenFrame from "../components/ScreenFrame";
 import { Panel, PanelHeading, StatusPill } from "../components/Panel";
 
-export default function OnlineLobbyScreen({ playerSlots, missionDifficulties, isReady, onToggleReady }) {
+const playerLoadouts = {
+  "Ajax Seventy": {
+    primary: "MX-12 Carbine",
+    secondary: "Rook-9 Sidearm",
+    equipment: "Shock Mine",
+    perk: "Rapid Triage"
+  },
+  "Vera North": {
+    primary: "Viper CQC",
+    secondary: "Medic-7",
+    equipment: "Stim Pack",
+    perk: "Field Surgeon"
+  },
+  Reyes: {
+    primary: "Bastion 58",
+    secondary: "Hammer-45",
+    equipment: "Breach Charge",
+    perk: "Armor Mule"
+  },
+  "Invite Slot": {
+    primary: "Open Slot",
+    secondary: "Awaiting Player",
+    equipment: "No Selection",
+    perk: "No Perk"
+  }
+};
+
+export default function OnlineLobbyScreen({ playerSlots, topBar }) {
   return (
     <section className="game-screen is-active" id="online-lobby">
-      <ScreenFrame backdropClassName="backdrop-lobby" gridClassName="screen-grid-lobby">
-        <Panel className="party-card">
-          <PanelHeading kicker="Strike Team" title="Party Panel" status={<StatusPill tone="ready">3/4 Online</StatusPill>} />
-          <div className="player-slot-list">
-            {playerSlots.map((slot) => (
-              <button className={`player-slot ${slot.tone}`.trim()} type="button" key={slot.name}>
-                <span className="slot-badge">{slot.badge}</span>
-                <strong>{slot.name}</strong>
-                <span>{slot.role}</span>
-              </button>
-            ))}
-          </div>
-        </Panel>
+      <ScreenFrame backdropClassName="backdrop-lobby" gridClassName="screen-grid-lobby" topBar={topBar}>
+        <div className="lobby-player-grid">
+          {playerSlots.map((slot) => {
+            const loadout = playerLoadouts[slot.name] ?? playerLoadouts["Invite Slot"];
 
-        <div className="lobby-actions">
-          <Panel className="action-card">
-            <p className="panel-kicker">Session Control</p>
-            <h3>Host or Join</h3>
-            <div className="action-row">
-              <button className="action-button action-button-primary" type="button">
-                Host Match
-              </button>
-              <button className="action-button" type="button">
-                Join by Code
-              </button>
-            </div>
-            <div className="session-code">
-              <span>Squad Code</span>
-              <strong>RAVN-317</strong>
-            </div>
-          </Panel>
-
-          <Panel className="mission-card">
-            <PanelHeading
-              kicker="Operation Select"
-              title="Mission and Difficulty"
-              status={<StatusPill tone="warning">Veteran</StatusPill>}
-            />
-            <div className="mission-summary">
-              <h4>St. Mercy Evacuation Route</h4>
-              <p>Escort survivors through the quarantine corridor and secure rooftop extraction.</p>
-            </div>
-            <div className="difficulty-row">
-              {missionDifficulties.map((difficulty) => (
-                <button
-                  className={`difficulty-chip ${difficulty === "Veteran" ? "is-active" : ""}`.trim()}
-                  type="button"
-                  key={difficulty}
-                >
-                  {difficulty}
-                </button>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel className="ready-card">
-            <p className="panel-kicker">Deployment</p>
-            <h3>Final Check</h3>
-            <p>All players must confirm loadouts before the host can launch the mission.</p>
-            <button
-              className={`ready-button ${isReady ? "is-confirmed" : ""}`.trim()}
-              type="button"
-              aria-pressed={isReady}
-              onClick={onToggleReady}
-            >
-              {isReady ? "Ready Confirmed" : "Ready Up"}
-            </button>
-          </Panel>
+            return (
+              <Panel className={`lobby-player-card ${slot.tone}`.trim()} key={slot.name}>
+                <PanelHeading
+                  kicker={slot.role}
+                  title={slot.name}
+                  status={<StatusPill tone={slot.tone === "is-ready" ? "ready" : slot.tone === "is-host" ? "warning" : "cold"}>{slot.badge}</StatusPill>}
+                />
+                <div className="lobby-player-loadout">
+                  <div className="lobby-loadout-row">
+                    <span>Primary</span>
+                    <strong>{loadout.primary}</strong>
+                  </div>
+                  <div className="lobby-loadout-row">
+                    <span>Secondary</span>
+                    <strong>{loadout.secondary}</strong>
+                  </div>
+                  <div className="lobby-loadout-row">
+                    <span>Equipment</span>
+                    <strong>{loadout.equipment}</strong>
+                  </div>
+                  <div className="lobby-loadout-row">
+                    <span>Perk</span>
+                    <strong>{loadout.perk}</strong>
+                  </div>
+                </div>
+              </Panel>
+            );
+          })}
         </div>
       </ScreenFrame>
     </section>
