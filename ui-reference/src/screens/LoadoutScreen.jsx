@@ -4,17 +4,17 @@ import { Panel, PanelHeading, StatusPill } from "../components/Panel";
 
 const weaponStatOrder = ["damage", "control", "mobility", "handling"];
 
-function SlotVisual({ imageClass }) {
+function SlotVisual({ imageClass, compact = false }) {
   return (
-    <div className="armory-slot-visual" aria-hidden="true">
+    <div className={`armory-slot-visual ${compact ? "is-compact" : ""}`.trim()} aria-hidden="true">
       <div className={`campaign-item-silhouette ${imageClass}`.trim()} />
     </div>
   );
 }
 
-function WeaponPlaceholder({ weapon }) {
+function WeaponPlaceholder({ weapon, compact = false }) {
   return (
-    <div className={`weapon-card-preview ${weapon?.imageVariantClass ?? ""}`.trim()} aria-hidden="true">
+    <div className={`weapon-card-preview ${weapon?.imageVariantClass ?? ""} ${compact ? "is-compact" : ""}`.trim()} aria-hidden="true">
       <div className="weapon-card-preview-frame">
         <div className={`campaign-item-silhouette ${weapon?.imageClass ?? "weapon-rifle"}`.trim()} />
       </div>
@@ -67,6 +67,26 @@ function getAttachmentDelta(tune) {
   return {};
 }
 
+function formatBenefit(perk) {
+  if (perk?.variants?.[0]?.effect) {
+    return perk.variants[0].effect;
+  }
+
+  return perk?.description ?? "Passive benefit";
+}
+
+function getPerkIconClass(perk) {
+  if (perk?.type === "Survival") {
+    return "perk-triage";
+  }
+
+  if (perk?.title?.toLowerCase().includes("ammo")) {
+    return "perk-ammo";
+  }
+
+  return "perk-cold";
+}
+
 export default function LoadoutScreen({
   armoryWeapons,
   customLoadouts,
@@ -79,12 +99,15 @@ export default function LoadoutScreen({
 }) {
   const [activeLoadoutId, setActiveLoadoutId] = useState(customLoadouts[0]?.id ?? "");
   const [activeSlotId, setActiveSlotId] = useState(null);
-  const [activeWeaponEditSlot, setActiveWeaponEditSlot] = useState("primary");
-  const [activeAttachmentSlot, setActiveAttachmentSlot] = useState(armoryWeapons[0]?.attachments?.[0]?.slot ?? null);
   const [activeWeaponClass, setActiveWeaponClass] = useState(weaponClassTabs[0] ?? "");
   const [selectedWeaponId, setSelectedWeaponId] = useState(
     armoryWeapons.find((weapon) => weapon.className === weaponClassTabs[0])?.id ?? armoryWeapons[0]?.id ?? ""
   );
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState(equipmentOptions[0]?.id ?? "");
+  const [selectedFieldUpgradeId, setSelectedFieldUpgradeId] = useState(fieldUpgradeOptions[0]?.id ?? "");
+  const [activePerkType, setActivePerkType] = useState(perkTypeTabs[0] ?? "All");
+  const [selectedPerkId, setSelectedPerkId] = useState(perkCatalog[0]?.id ?? "");
+  const [activeAttachmentSlot, setActiveAttachmentSlot] = useState(armoryWeapons[0]?.attachments?.[0]?.slot ?? null);
   const [loadoutWeaponSelections, setLoadoutWeaponSelections] = useState(() =>
     Object.fromEntries(
       customLoadouts.map((loadout, index) => [
@@ -100,6 +123,24 @@ export default function LoadoutScreen({
       ])
     )
   );
+  const [loadoutEquipmentSelections, setLoadoutEquipmentSelections] = useState(() =>
+    Object.fromEntries(
+      customLoadouts.map((loadout, index) => [
+        loadout.id,
+        equipmentOptions.find((item) => item.title === loadout.equipment)?.id ?? equipmentOptions[index % equipmentOptions.length]?.id ?? ""
+      ])
+    )
+  );
+  const [loadoutFieldUpgradeSelections, setLoadoutFieldUpgradeSelections] = useState(() =>
+    Object.fromEntries(
+      customLoadouts.map((loadout, index) => [
+        loadout.id,
+        fieldUpgradeOptions.find((item) => item.title === loadout.fieldUpgrade)?.id ??
+          fieldUpgradeOptions[index % fieldUpgradeOptions.length]?.id ??
+          ""
+      ])
+    )
+  );
   const [attachmentSelections, setAttachmentSelections] = useState(() =>
     Object.fromEntries(
       armoryWeapons.map((weapon) => [
@@ -108,37 +149,64 @@ export default function LoadoutScreen({
       ])
     )
   );
-  const [selectedEquipmentId, setSelectedEquipmentId] = useState(equipmentOptions[0]?.id ?? "");
-  const [selectedFieldUpgradeId, setSelectedFieldUpgradeId] = useState(fieldUpgradeOptions[0]?.id ?? "");
-  const [activePerkType, setActivePerkType] = useState(perkTypeTabs[0] ?? "All");
-  const [selectedPerkId, setSelectedPerkId] = useState(perkCatalog[0]?.id ?? "");
+  const [loadoutPerkSelections, setLoadoutPerkSelections] = useState(() =>
+    Object.fromEntries(
+      customLoadouts.map((loadout) => [
+        loadout.id,
+        loadout.perks
+          .map((perkName) => perkCatalog.find((perk) => perk.title === perkName)?.id)
+          .filter(Boolean)
+      ])
+    )
+  );
+  const [swapModalPerkId, setSwapModalPerkId] = useState(null);
+  const [swapModalPerkIds, setSwapModalPerkIds] = useState([]);
 
   const activeLoadout = customLoadouts.find((loadout) => loadout.id === activeLoadoutId) ?? customLoadouts[0];
   const activeLoadoutWeapons = loadoutWeaponSelections[activeLoadout?.id] ?? {};
+  const primaryWeapon = armoryWeapons.find((weapon) => weapon.id === activeLoadoutWeapons.primary) ?? armoryWeapons[0];
+  const secondaryWeapon = armoryWeapons.find((weapon) => weapon.id === activeLoadoutWeapons.secondary) ?? armoryWeapons[1] ?? armoryWeapons[0];
+  const activeEquipment =
+    equipmentOptions.find((item) => item.id === loadoutEquipmentSelections[activeLoadout?.id]) ?? equipmentOptions[0];
+  const activeFieldUpgrade =
+    fieldUpgradeOptions.find((item) => item.id === loadoutFieldUpgradeSelections[activeLoadout?.id]) ?? fieldUpgradeOptions[0];
+
   const filteredWeapons = useMemo(
     () => armoryWeapons.filter((weapon) => weapon.className === activeWeaponClass),
     [activeWeaponClass, armoryWeapons]
   );
   const selectedWeapon =
     armoryWeapons.find((weapon) => weapon.id === selectedWeaponId) ?? filteredWeapons[0] ?? armoryWeapons[0];
-  const equippedWeapon =
-    armoryWeapons.find((weapon) => weapon.id === activeLoadoutWeapons[activeWeaponEditSlot]) ?? armoryWeapons[0];
-  const selectedEquipment = equipmentOptions.find((item) => item.id === selectedEquipmentId) ?? equipmentOptions[0];
+  const selectedEquipment = equipmentOptions.find((item) => item.id === selectedEquipmentId) ?? activeEquipment ?? equipmentOptions[0];
   const selectedFieldUpgrade =
-    fieldUpgradeOptions.find((item) => item.id === selectedFieldUpgradeId) ?? fieldUpgradeOptions[0];
+    fieldUpgradeOptions.find((item) => item.id === selectedFieldUpgradeId) ?? activeFieldUpgrade ?? fieldUpgradeOptions[0];
   const filteredPerks = useMemo(
-    () => perkCatalog.filter((perk) => activePerkType === "All" || perk.type === activePerkType),
+    () =>
+      perkCatalog
+        .filter((perk) => activePerkType === "All" || perk.type === activePerkType)
+        .sort((left, right) => left.cost - right.cost || left.level - right.level || left.title.localeCompare(right.title)),
     [activePerkType, perkCatalog]
   );
   const selectedPerk = perkCatalog.find((perk) => perk.id === selectedPerkId) ?? filteredPerks[0] ?? perkCatalog[0];
-  const equippedPerks = activeLoadout?.perks
-    .map((perkName) => perkCatalog.find((perk) => perk.title === perkName))
+  const equippedPerkIds = loadoutPerkSelections[activeLoadout?.id] ?? [];
+  const equippedPerks = equippedPerkIds
+    .map((perkId) => perkCatalog.find((perk) => perk.id === perkId))
     .filter(Boolean);
   const capacityUsed = equippedPerks.reduce((total, perk) => total + perk.cost, 0);
+  const remainingCapacity = Math.max(0, 6 - capacityUsed);
+  const activeOverviewAttachment =
+    primaryWeapon?.attachments.find((attachment) => attachment.slot === activeAttachmentSlot) ?? primaryWeapon?.attachments?.[0];
+  const swapModalPerk = perkCatalog.find((perk) => perk.id === swapModalPerkId) ?? null;
+  const swapModalPerks = swapModalPerkIds
+    .map((perkId) => perkCatalog.find((perk) => perk.id === perkId))
+    .filter(Boolean);
+  const swapModalCapacityUsed = swapModalPerks.reduce((total, perk) => total + perk.cost, 0);
+  const swapModalCanConfirm = swapModalPerk ? swapModalCapacityUsed + swapModalPerk.cost <= 6 : false;
 
   const isWeaponSelection = activeSlotId === "primary" || activeSlotId === "secondary";
   const isEquipmentSelection = activeSlotId === "equipment";
   const isFieldUpgradeSelection = activeSlotId === "field-upgrade";
+  const isAttachmentSelection = activeSlotId === "attachments";
   const isPerkSelection = activeSlotId === "perks";
 
   const getEquippedAttachmentOption = (weapon, attachment) => {
@@ -167,16 +235,120 @@ export default function LoadoutScreen({
   };
 
   const selectedWeaponStats = getWeaponStats(selectedWeapon);
-  const equippedWeaponStats = getWeaponStats(equippedWeapon);
-  const activeOverviewAttachment =
-    equippedWeapon?.attachments.find((attachment) => attachment.slot === activeAttachmentSlot) ?? equippedWeapon?.attachments?.[0];
+  const primaryWeaponStats = getWeaponStats(primaryWeapon);
 
   const handleOpenWeaponSelection = (slotId) => {
     setActiveSlotId(slotId);
-    setActiveWeaponEditSlot(slotId);
     const currentWeapon = armoryWeapons.find((weapon) => weapon.id === activeLoadoutWeapons[slotId]) ?? armoryWeapons[0];
     setSelectedWeaponId(currentWeapon?.id ?? armoryWeapons[0]?.id ?? "");
     setActiveWeaponClass(currentWeapon?.className ?? weaponClassTabs[0] ?? "");
+  };
+
+  const loadoutCards = [
+    {
+      id: "attachments",
+      title: "Attachments",
+      item: "",
+      tone: "attachments",
+      imageClass: primaryWeapon?.imageClass ?? "weapon-rifle",
+      meta: ""
+    },
+    {
+      id: "primary",
+      title: "Primary",
+      item: primaryWeapon?.title ?? activeLoadout?.primary ?? "Primary Weapon",
+      tone: "large",
+      imageClass: primaryWeapon?.imageClass ?? "weapon-rifle",
+      meta: `${primaryWeapon?.className ?? "Weapon"} · ${primaryWeapon?.attachments?.length ?? 0} attachments`
+    },
+    {
+      id: "secondary",
+      title: "Secondary",
+      item: secondaryWeapon?.title ?? activeLoadout?.secondary ?? "Secondary Weapon",
+      tone: "large",
+      imageClass: secondaryWeapon?.imageClass ?? "weapon-sidearm",
+      meta: `${secondaryWeapon?.className ?? "Weapon"} · ${secondaryWeapon?.attachments?.length ?? 0} attachments`
+    },
+    {
+      id: "equipment",
+      title: "Equipment",
+      item: activeEquipment?.title ?? activeLoadout?.equipment ?? "Equipment",
+      tone: "medium",
+      imageClass: activeEquipment?.imageClass ?? "gear-mine",
+      meta: "Tactical slot"
+    },
+    {
+      id: "field-upgrade",
+      title: "Field Upgrade",
+      item: activeFieldUpgrade?.title ?? activeLoadout?.fieldUpgrade ?? "Field Upgrade",
+      tone: "medium",
+      imageClass: activeFieldUpgrade?.imageClass ?? "gear-turret",
+      meta: "Recharge ability"
+    },
+    {
+      id: "perks",
+      title: "Perks",
+      item: `${equippedPerks.length} Equipped`,
+      tone: "perks",
+      imageClass: "perk-cold",
+      meta: `${capacityUsed}/6 Capacity`
+    }
+  ];
+
+  const addSelectedPerk = ({ closeOnSuccess = false } = {}) => {
+    if (!selectedPerk) {
+      return;
+    }
+
+    if (equippedPerkIds.includes(selectedPerk.id)) {
+      if (closeOnSuccess) {
+        setActiveSlotId(null);
+      }
+      return;
+    }
+
+    if (selectedPerk.cost <= remainingCapacity) {
+      setLoadoutPerkSelections((current) => ({
+        ...current,
+        [activeLoadout.id]: [...(current[activeLoadout.id] ?? []), selectedPerk.id]
+      }));
+      if (closeOnSuccess) {
+        setActiveSlotId(null);
+      }
+      return;
+    }
+
+    setSwapModalPerkId(selectedPerk.id);
+    setSwapModalPerkIds(equippedPerkIds);
+  };
+
+  const removeEquippedPerk = (perkIdToRemove) => {
+    setLoadoutPerkSelections((current) => ({
+      ...current,
+      [activeLoadout.id]: (current[activeLoadout.id] ?? []).filter((perkId) => perkId !== perkIdToRemove)
+    }));
+  };
+
+  const toggleSwapModalPerkRemoval = (perkIdToToggle) => {
+    setSwapModalPerkIds((current) => current.filter((perkId) => perkId !== perkIdToToggle));
+  };
+
+  const closeSwapModal = () => {
+    setSwapModalPerkId(null);
+    setSwapModalPerkIds([]);
+  };
+
+  const confirmSwapModalSelection = () => {
+    if (!swapModalPerk || !swapModalCanConfirm) {
+      closeSwapModal();
+      return;
+    }
+
+    setLoadoutPerkSelections((current) => ({
+      ...current,
+      [activeLoadout.id]: [...swapModalPerkIds, swapModalPerk.id]
+    }));
+    closeSwapModal();
   };
 
   return (
@@ -184,7 +356,7 @@ export default function LoadoutScreen({
       <ScreenFrame backdropClassName="backdrop-loadout" gridClassName="screen-grid-loadout-rework" topBar={topBar}>
         <div className="loadout-shell">
           <Panel className="loadout-presets-card">
-            <PanelHeading kicker="Loadout List" title="Custom Built Loadouts" status={<StatusPill tone="cold">4 Saved</StatusPill>} />
+            <PanelHeading kicker="Loadout List" title="Custom Built Loadouts" />
             <div className="loadout-preset-list">
               {customLoadouts.map((loadout) => (
                 <button
@@ -194,6 +366,10 @@ export default function LoadoutScreen({
                   onClick={() => {
                     setActiveLoadoutId(loadout.id);
                     setActiveSlotId(null);
+                    setActiveAttachmentSlot(
+                      (armoryWeapons.find((weapon) => weapon.id === loadoutWeaponSelections[loadout.id]?.primary) ?? armoryWeapons[0])?.attachments?.[0]?.slot ??
+                        null
+                    );
                   }}
                 >
                   <span>{loadout.role}</span>
@@ -242,7 +418,7 @@ export default function LoadoutScreen({
                     >
                       <span className="item-class">{weapon.className.replace(" Rifles", "")}</span>
                       <strong>{weapon.title}</strong>
-                      <WeaponPlaceholder weapon={weapon} />
+                      <WeaponPlaceholder weapon={weapon} compact />
                     </button>
                   ))}
                 </div>
@@ -251,19 +427,22 @@ export default function LoadoutScreen({
               <Panel className="armory-detail-card armory-detail-card-compact">
                 <PanelHeading kicker="Weapon Preview" title={selectedWeapon?.title ?? "Weapon"} status={<StatusPill tone="ready">Candidate</StatusPill>} />
                 <SlotVisual imageClass={selectedWeapon?.imageClass ?? "weapon-rifle"} />
-                <div className="weapon-attribute-grid">
+                <div className="summary-bars weapon-preview-bars">
                   {weaponStatOrder.map((label) => (
-                    <div className="weapon-attribute-card" key={label}>
+                    <div className="summary-row" key={label}>
                       <span>{label}</span>
+                      <div className="bar">
+                        <i style={{ width: `${selectedWeaponStats[label] ?? 0}%` }}></i>
+                      </div>
                       <strong>{selectedWeaponStats[label] ?? "--"}</strong>
                     </div>
                   ))}
                 </div>
                 <div className="armory-detail-copy">
-                  <p>Confirm this weapon to equip it to the loadout. Attachment tuning happens in the main gunsmith view.</p>
+                  <p>Confirm this weapon to equip it to the selected loadout slot.</p>
                 </div>
                 <button
-                  className="action-button action-button-primary"
+                  className="action-button action-button-primary action-button-confirm"
                   type="button"
                   onClick={() => {
                     setLoadoutWeaponSelections((current) => ({
@@ -273,8 +452,9 @@ export default function LoadoutScreen({
                         [activeSlotId]: selectedWeapon.id
                       }
                     }));
-                    setActiveWeaponEditSlot(activeSlotId);
-                    setActiveAttachmentSlot(selectedWeapon.attachments?.[0]?.slot ?? null);
+                    if (activeSlotId === "primary") {
+                      setActiveAttachmentSlot(selectedWeapon.attachments?.[0]?.slot ?? null);
+                    }
                     setActiveSlotId(null);
                   }}
                 >
@@ -306,7 +486,17 @@ export default function LoadoutScreen({
                 <div className="armory-detail-copy">
                   <p>{selectedEquipment?.body}</p>
                 </div>
-                <button className="action-button action-button-primary" type="button" onClick={() => setActiveSlotId(null)}>
+                <button
+                  className="action-button action-button-primary action-button-confirm"
+                  type="button"
+                  onClick={() => {
+                    setLoadoutEquipmentSelections((current) => ({
+                      ...current,
+                      [activeLoadout.id]: selectedEquipment.id
+                    }));
+                    setActiveSlotId(null);
+                  }}
+                >
                   Confirm Selection
                 </button>
               </Panel>
@@ -335,8 +525,110 @@ export default function LoadoutScreen({
                 <div className="armory-detail-copy">
                   <p>{selectedFieldUpgrade?.body}</p>
                 </div>
-                <button className="action-button action-button-primary" type="button" onClick={() => setActiveSlotId(null)}>
+                <button
+                  className="action-button action-button-primary action-button-confirm"
+                  type="button"
+                  onClick={() => {
+                    setLoadoutFieldUpgradeSelections((current) => ({
+                      ...current,
+                      [activeLoadout.id]: selectedFieldUpgrade.id
+                    }));
+                    setActiveSlotId(null);
+                  }}
+                >
                   Confirm Selection
+                </button>
+              </Panel>
+            </>
+          ) : isAttachmentSelection ? (
+            <>
+              <Panel className="armory-browser-card">
+                <PanelHeading kicker="Attachment Select" title={primaryWeapon?.title ?? "Primary Weapon"} status={<StatusPill tone="warning">Gunsmith</StatusPill>} />
+                <div className="armory-detail-copy">
+                  <p>Select a slot, then choose the attachment option you want on this build.</p>
+                </div>
+                <div className="attachment-select-layout">
+                  <div className="armory-simple-list">
+                    {primaryWeapon?.attachments.map((attachment) => (
+                      <button
+                        className={`armory-weapon-card ${attachment.slot === activeOverviewAttachment?.slot ? "is-selected" : ""}`.trim()}
+                        type="button"
+                        key={attachment.slot}
+                        onClick={() => setActiveAttachmentSlot(attachment.slot)}
+                      >
+                        <span className="item-class">{attachment.slot}</span>
+                        <strong>{getEquippedAttachmentOption(primaryWeapon, attachment).title}</strong>
+                        <span>{getEquippedAttachmentOption(primaryWeapon, attachment).tune}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="armory-attachment-option-list armory-attachment-option-list-wide">
+                    {activeOverviewAttachment?.options?.map((option) => (
+                      <button
+                        className={`armory-attachment-option ${
+                          option.title ===
+                          (attachmentSelections[primaryWeapon.id]?.[activeOverviewAttachment.slot] ?? activeOverviewAttachment.selected)
+                            ? "is-selected"
+                            : ""
+                        }`.trim()}
+                        type="button"
+                        key={option.title}
+                        onClick={() =>
+                          setAttachmentSelections((current) => ({
+                            ...current,
+                            [primaryWeapon.id]: {
+                              ...current[primaryWeapon.id],
+                              [activeOverviewAttachment.slot]: option.title
+                            }
+                          }))
+                        }
+                      >
+                        <AttachmentPlaceholder attachment={{ slot: activeOverviewAttachment.slot, ...option }} />
+                      </button>
+                    )) ?? null}
+                  </div>
+                </div>
+              </Panel>
+
+              <Panel className="armory-detail-card attachment-live-build-card">
+                <PanelHeading kicker="Live Build" title={primaryWeapon?.title ?? "Weapon"} status={<StatusPill tone="ready">Updated Stats</StatusPill>} />
+                <WeaponPlaceholder weapon={primaryWeapon} />
+                <div className="summary-bars weapon-summary-bars">
+                  {weaponStatOrder.map((label) => (
+                    <div className="summary-row" key={label}>
+                      <span>{label}</span>
+                      <div className="bar">
+                        <i style={{ width: `${getWeaponStats(primaryWeapon)[label] ?? 0}%` }}></i>
+                      </div>
+                      <strong>{getWeaponStats(primaryWeapon)[label] ?? "--"}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div className="weapon-summary-note">
+                  <strong>Selected Attachment</strong>
+                  <p>
+                    {activeOverviewAttachment
+                      ? `${getEquippedAttachmentOption(primaryWeapon, activeOverviewAttachment).title} - ${
+                          getEquippedAttachmentOption(primaryWeapon, activeOverviewAttachment).tune
+                        }`
+                      : "Select a slot to tune this platform."}
+                  </p>
+                </div>
+                <div className="selected-perk-list attachment-change-list">
+                  {primaryWeapon?.attachments.map((attachment) => (
+                    <div className="selected-perk-row" key={attachment.slot}>
+                      <div className={`campaign-item-silhouette ${getEquippedAttachmentOption(primaryWeapon, attachment).imageClass}`.trim()}></div>
+                      <div>
+                        <strong>{attachment.slot}</strong>
+                        <span>{getEquippedAttachmentOption(primaryWeapon, attachment).title}</span>
+                      </div>
+                      <em>{getEquippedAttachmentOption(primaryWeapon, attachment).tune}</em>
+                    </div>
+                  ))}
+                </div>
+                <button className="action-button action-button-primary action-button-confirm" type="button" onClick={() => setActiveSlotId(null)}>
+                  Confirm Attachments
                 </button>
               </Panel>
             </>
@@ -365,21 +657,24 @@ export default function LoadoutScreen({
 
                 <div className="armory-weapon-list perk-selection-list">
                   {filteredPerks.map((perk) => {
-                    const isEquipped = activeLoadout?.perks.includes(perk.title);
+                    const isEquipped = equippedPerkIds.includes(perk.id);
+                    const canAfford = isEquipped || perk.cost <= remainingCapacity;
 
                     return (
                       <button
-                        className={`armory-weapon-card ${perk.id === selectedPerk?.id ? "is-selected" : ""}`.trim()}
+                        className={`armory-weapon-card perk-select-card ${perk.id === selectedPerk?.id ? "is-selected" : ""} ${
+                          canAfford ? "" : "is-dimmed"
+                        }`.trim()}
                         type="button"
                         key={perk.id}
                         onClick={() => setSelectedPerkId(perk.id)}
                       >
-                        <span className="item-class">{perk.type}</span>
-                        <strong>{perk.title}</strong>
-                        <span>
-                          Lv {perk.level} · Cost {perk.cost}
-                          {isEquipped ? " · Equipped" : ""}
-                        </span>
+                        <div className={`campaign-perk-icon ${getPerkIconClass(perk)}`.trim()}></div>
+                        <div className="perk-select-copy">
+                          <strong>{perk.title}</strong>
+                          <span>{formatBenefit(perk)}</span>
+                        </div>
+                        <em className="perk-select-cost">Cost {perk.cost}</em>
                       </button>
                     );
                   })}
@@ -420,7 +715,34 @@ export default function LoadoutScreen({
                   )}
                 </div>
 
+                <button
+                  className="action-button action-button-primary action-button-confirm"
+                  type="button"
+                  onClick={() => addSelectedPerk({ closeOnSuccess: false })}
+                >
+                  Add Perk
+                </button>
+
                 <div className="perk-equipped-summary">
+                  <div className="perk-capacity-row">
+                    <strong>Currently Selected</strong>
+                    <span>{remainingCapacity} Points Left</span>
+                  </div>
+                  <div className="selected-perk-list">
+                    {equippedPerks.map((perk) => (
+                      <div className="selected-perk-row" key={perk.id}>
+                        <div className={`campaign-perk-icon selected-perk-icon ${getPerkIconClass(perk)}`.trim()}></div>
+                        <div>
+                          <strong>{perk.title}</strong>
+                          <span>{formatBenefit(perk)}</span>
+                        </div>
+                        <button className="selected-perk-remove" type="button" aria-label={`Remove ${perk.title}`} onClick={() => removeEquippedPerk(perk.id)}>
+                          ×
+                        </button>
+                        <em>Cost {perk.cost}</em>
+                      </div>
+                    ))}
+                  </div>
                   <div className="perk-capacity-row">
                     <strong>Capacity</strong>
                     <span>{capacityUsed}/6</span>
@@ -437,123 +759,213 @@ export default function LoadoutScreen({
                   </div>
                 </div>
 
-                <button className="action-button action-button-primary" type="button" onClick={() => setActiveSlotId(null)}>
-                  Confirm Selection
-                </button>
+                <div className="perk-action-row">
+                  <button className="action-button action-button-primary action-button-confirm" type="button" onClick={() => setActiveSlotId(null)}>
+                    Confirm Perks
+                  </button>
+                </div>
               </Panel>
             </>
           ) : (
             <>
-              <Panel className="loadout-overview-card gunsmith-overview-card">
-                <PanelHeading kicker="Gunsmith" title={activeLoadout?.label ?? "Custom Loadout"} status={<StatusPill tone="ready">Attachment Edit</StatusPill>} />
-                <div className="armory-class-tabs" role="tablist" aria-label="Weapon slots">
-                  {["primary", "secondary"].map((slotId) => (
-                    <button
-                      className={`category-tab ${slotId === activeWeaponEditSlot ? "is-active" : ""}`.trim()}
-                      type="button"
-                      key={slotId}
-                      onClick={() => {
-                        setActiveWeaponEditSlot(slotId);
-                        const slotWeapon = armoryWeapons.find((weapon) => weapon.id === activeLoadoutWeapons[slotId]) ?? armoryWeapons[0];
-                        setActiveAttachmentSlot(slotWeapon?.attachments?.[0]?.slot ?? null);
-                      }}
-                    >
-                      {slotId === "primary" ? "Primary Weapon" : "Secondary Weapon"}
-                    </button>
-                  ))}
-                </div>
-                <div className="loadout-overview-actions">
-                  <button className="action-button" type="button" onClick={() => handleOpenWeaponSelection(activeWeaponEditSlot)}>
-                    Change Weapon
-                  </button>
-                </div>
-                <div className="armory-gunsmith-layout">
-                  <div className="armory-attachment-stack">
-                    {equippedWeapon?.attachments.map((attachment) => (
-                      <button
-                        className={`armory-attachment-slot-button ${attachment.slot === activeOverviewAttachment?.slot ? "is-selected" : ""}`.trim()}
-                        type="button"
-                        key={attachment.slot}
-                        onClick={() => setActiveAttachmentSlot(attachment.slot)}
-                      >
-                        <AttachmentPlaceholder
-                          attachment={{
-                            slot: attachment.slot,
-                            ...getEquippedAttachmentOption(equippedWeapon, attachment)
-                          }}
-                        />
-                      </button>
-                    )) ?? null}
-                  </div>
-                  <div className="armory-attachment-option-panel">
-                    <div className="panel-heading">
-                      <div>
-                        <p className="panel-kicker">Attachment Options</p>
-                        <h3>{activeOverviewAttachment?.slot ?? "Select Slot"}</h3>
+              <Panel className="loadout-overview-card cod-loadout-overview-card">
+                <PanelHeading kicker="Loadout View" title={activeLoadout?.label ?? "Custom Loadout"} />
+
+                <div className="loadout-showcase">
+                  <div className="loadout-hero-stage">
+                    <div className="loadout-hero-surface" aria-hidden="true">
+                      <div className="loadout-hero-grid"></div>
+                    </div>
+
+                    <div className="loadout-weapon-hero">
+                      <WeaponPlaceholder weapon={primaryWeapon} />
+                      <div className="loadout-support-overlay">
+                        <div className="loadout-support-card">
+                          <WeaponPlaceholder weapon={secondaryWeapon} compact />
+                          <strong>{secondaryWeapon?.title}</strong>
+                        </div>
+                        <div className="loadout-support-card">
+                          <SlotVisual imageClass={activeEquipment?.imageClass ?? "gear-mine"} compact />
+                          <strong>{activeEquipment?.title}</strong>
+                        </div>
+                        <div className="loadout-support-card">
+                          <SlotVisual imageClass={activeFieldUpgrade?.imageClass ?? "gear-turret"} compact />
+                          <strong>{activeFieldUpgrade?.title}</strong>
+                        </div>
                       </div>
-                      <span className="slot-meta">{activeOverviewAttachment?.options?.length ?? 0} Options</span>
                     </div>
-                    <div className="armory-attachment-option-list">
-                      {activeOverviewAttachment?.options?.map((option) => (
-                        <button
-                          className={`armory-attachment-option ${
-                            option.title ===
-                            (attachmentSelections[equippedWeapon.id]?.[activeOverviewAttachment.slot] ?? activeOverviewAttachment.selected)
-                              ? "is-selected"
-                              : ""
-                          }`.trim()}
-                          type="button"
-                          key={option.title}
-                          onClick={() =>
-                            setAttachmentSelections((current) => ({
-                              ...current,
-                              [equippedWeapon.id]: {
-                                ...current[equippedWeapon.id],
-                                [activeOverviewAttachment.slot]: option.title
-                              }
-                            }))
+                  </div>
+
+                  <div className="loadout-options-grid cod-loadout-cards">
+                    {loadoutCards.map((card) => (
+                      <button
+                        className={`loadout-option-card tone-${card.tone}`.trim()}
+                        type="button"
+                        key={card.id}
+                        onClick={() => {
+                          if (card.id === "primary" || card.id === "secondary") {
+                            handleOpenWeaponSelection(card.id);
+                            return;
                           }
-                        >
-                          <AttachmentPlaceholder attachment={{ slot: activeOverviewAttachment.slot, ...option }} />
-                        </button>
-                      )) ?? null}
-                    </div>
+
+                          setActiveSlotId(card.id);
+                        }}
+                      >
+                        <div>
+                          <p className="panel-kicker">{card.title}</p>
+                          <strong>{card.item}</strong>
+                          <span className="loadout-option-meta">{card.meta}</span>
+                        </div>
+
+                        {card.id === "perks" ? (
+                          <div className="loadout-perk-icons">
+                            {equippedPerks.slice(0, 6).map((perk) => (
+                              <div className={`campaign-perk-icon ${perk.type === "Survival" ? "perk-triage" : "perk-cold"}`.trim()} key={perk.id}></div>
+                            ))}
+                          </div>
+                        ) : card.id === "attachments" ? (
+                          <div className="loadout-attachment-summary">
+                            {primaryWeapon?.attachments.map((attachment) => (
+                              <div className="loadout-attachment-summary-row" key={attachment.slot}>
+                                <span>{attachment.slot}</span>
+                                <strong>{getEquippedAttachmentOption(primaryWeapon, attachment).title}</strong>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="loadout-option-visual">
+                            <div className={`campaign-item-silhouette ${card.imageClass}`.trim()} />
+                          </div>
+                        )}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </Panel>
 
-              <Panel className="loadout-stats-card weapon-summary-card">
-                <PanelHeading
-                  kicker={activeWeaponEditSlot === "primary" ? "Primary Weapon" : "Secondary Weapon"}
-                  title={equippedWeapon?.title ?? "Weapon"}
-                  status={<StatusPill tone="cold">Live Tuning</StatusPill>}
-                />
-                <WeaponPlaceholder weapon={equippedWeapon} />
+              <Panel className="loadout-stats-card cod-loadout-stats-card">
+                <PanelHeading kicker="Loadout Dossier" title={primaryWeapon?.title ?? "Weapon"} />
+
                 <div className="summary-bars weapon-summary-bars">
                   {weaponStatOrder.map((label) => (
                     <div className="summary-row" key={label}>
                       <span>{label}</span>
                       <div className="bar">
-                        <i style={{ width: `${equippedWeaponStats[label] ?? 0}%` }}></i>
+                        <i style={{ width: `${primaryWeaponStats[label] ?? 0}%` }}></i>
                       </div>
-                      <strong>{equippedWeaponStats[label] ?? "--"}</strong>
+                      <strong>{primaryWeaponStats[label] ?? "--"}</strong>
                     </div>
                   ))}
                 </div>
-                <div className="weapon-summary-note">
-                  <strong>Selected Attachment</strong>
-                  <p>
-                    {activeOverviewAttachment
-                      ? `${getEquippedAttachmentOption(equippedWeapon, activeOverviewAttachment).title} · ${
-                          getEquippedAttachmentOption(equippedWeapon, activeOverviewAttachment).tune
-                        }`
-                      : "Select a slot to tune this platform."}
-                  </p>
+
+                <div className="loadout-dossier-grid">
+                  <div className="weapon-summary-note">
+                    <strong>Current Build</strong>
+                    <p>{primaryWeapon?.className ?? "Weapon class"}</p>
+                  </div>
+                  <div className="weapon-summary-note">
+                    <strong>Tactical</strong>
+                    <p>{activeEquipment?.title ?? "Equipment"}</p>
+                  </div>
+                  <div className="weapon-summary-note">
+                    <strong>Field Upgrade</strong>
+                    <p>{activeFieldUpgrade?.title ?? "Field Upgrade"}</p>
+                  </div>
+                  <div className="weapon-summary-note">
+                    <strong>Focused Attachment</strong>
+                    <p>
+                      {activeOverviewAttachment
+                        ? `${getEquippedAttachmentOption(primaryWeapon, activeOverviewAttachment).title} - ${
+                            getEquippedAttachmentOption(primaryWeapon, activeOverviewAttachment).tune
+                          }`
+                        : "Select an attachment card to inspect the slot."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="perk-benefit-list">
+                  <div className="perk-capacity-row">
+                    <strong>Current Buffs</strong>
+                    <span>{equippedPerks.length} Active</span>
+                  </div>
+                  <div className="equipped-perk-chip-list">
+                    {equippedPerks.map((perk) => (
+                      <div className="campaign-perk-chip" key={perk.id}>
+                        {perk.title}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="perk-capacity-row">
+                    <strong>Perk Benefits</strong>
+                    <span>{capacityUsed}/6 Capacity</span>
+                  </div>
+                  <div className="bar">
+                    <i style={{ width: `${Math.min((capacityUsed / 6) * 100, 100)}%` }}></i>
+                  </div>
+                  {equippedPerks.map((perk) => (
+                    <div className="perk-benefit-row" key={perk.id}>
+                      <div>
+                        <strong>{perk.title}</strong>
+                        <span>{formatBenefit(perk)}</span>
+                      </div>
+                      <em>{perk.type}</em>
+                    </div>
+                  ))}
                 </div>
               </Panel>
             </>
           )}
         </div>
+        {swapModalPerk ? (
+          <div className="perk-modal-backdrop" role="presentation">
+            <div className="perk-swap-modal" role="dialog" aria-modal="true" aria-labelledby="perk-swap-title">
+              <div className="panel-heading">
+                <div>
+                  <p className="panel-kicker">Swap Required</p>
+                  <h3 id="perk-swap-title">{swapModalPerk.title}</h3>
+                </div>
+                <span className="slot-meta">Cost {swapModalPerk.cost}</span>
+              </div>
+              <div className="armory-detail-copy">
+                <p>
+                  You do not have enough perk points remaining. Remove equipped perks until {swapModalPerk.title} fits in the loadout.
+                </p>
+              </div>
+              <div className="selected-perk-list">
+                {swapModalPerks.map((perk) => (
+                  <div className="selected-perk-row" key={perk.id}>
+                    <div className={`campaign-perk-icon selected-perk-icon ${getPerkIconClass(perk)}`.trim()}></div>
+                    <div>
+                      <strong>{perk.title}</strong>
+                      <span>{formatBenefit(perk)}</span>
+                    </div>
+                    <button
+                      className="selected-perk-remove"
+                      type="button"
+                      aria-label={`Remove ${perk.title}`}
+                      onClick={() => toggleSwapModalPerkRemoval(perk.id)}
+                    >
+                      ×
+                    </button>
+                    <em>Cost {perk.cost}</em>
+                  </div>
+                ))}
+              </div>
+              <div className="perk-capacity-row">
+                <strong>Pending Capacity</strong>
+                <span>
+                  {swapModalCapacityUsed + (swapModalPerk?.cost ?? 0)}/6
+                </span>
+              </div>
+              <div className="bar">
+                <i style={{ width: `${Math.min((((swapModalCapacityUsed + (swapModalPerk?.cost ?? 0)) / 6) * 100), 100)}%` }}></i>
+              </div>
+              <button className="action-button action-button-primary action-button-confirm" type="button" onClick={confirmSwapModalSelection}>
+                {swapModalCanConfirm ? "Confirm Swap" : "Cancel"}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </ScreenFrame>
     </section>
   );

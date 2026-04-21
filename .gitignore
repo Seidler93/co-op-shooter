@@ -3,6 +3,7 @@
 # ==========================================================
 node_modules/
 CHEATSHEET.mdb
+.firebase/
 # OS junk
 .DS_Store
 Thumbs.db

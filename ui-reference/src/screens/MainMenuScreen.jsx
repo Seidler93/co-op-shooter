@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import ScreenFrame from "../components/ScreenFrame";
 import { Panel, PanelHeading, StatusPill } from "../components/Panel";
 
-export default function MainMenuScreen({ onNavigate, onOpenCampaign, profileStats, newsItems, playerSlots }) {
+export default function MainMenuScreen({ onNavigate, onOpenCampaign, onOpenNightmare, profileStats, newsItems, playerSlots }) {
   const noteGroups = [
     {
       id: "patch",
@@ -66,6 +66,8 @@ export default function MainMenuScreen({ onNavigate, onOpenCampaign, profileStat
                 onClick={() => {
                   if (label === "Campaign") {
                     onOpenCampaign();
+                  } else if (label === "Nightmare Mode") {
+                    onOpenNightmare();
                   } else if (label === "Barracks") {
                     onNavigate("barracks-screen");
                   } else if (label === "Social") {
