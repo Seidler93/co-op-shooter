@@ -18,6 +18,9 @@ public class EnemyAI : NetworkBehaviour
     [Header("Debug")]
     [SerializeField] private bool logTargetChanges = false;
 
+    [Header("Animation")]
+    [SerializeField] private EnemyAnimatorDriver enemyAnimator;
+
     private NavMeshAgent agent;
     private Health myHealth;
 
@@ -32,6 +35,7 @@ public class EnemyAI : NetworkBehaviour
     {
         myHealth = GetComponent<Health>();
         agent = GetComponent<NavMeshAgent>();
+        if (!enemyAnimator) enemyAnimator = GetComponent<EnemyAnimatorDriver>();
     }
 
     public override void OnNetworkSpawn()
@@ -170,6 +174,7 @@ public class EnemyAI : NetworkBehaviour
 
         if (IsTargetValid(targetHealth, targetPlayerHealth))
         {
+            enemyAnimator?.TriggerAttack();
             targetHealth.ApplyDamage(attackDamage, 0);
 
             if (!IsTargetValid(targetHealth, targetPlayerHealth))

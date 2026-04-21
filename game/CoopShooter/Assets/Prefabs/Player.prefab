@@ -1045,7 +1045,6 @@ GameObject:
   - component: {fileID: 7687272366176895293}
   - component: {fileID: 3056241524252898234}
   - component: {fileID: 3050885605066038706}
-  - component: {fileID: 4708112036984550118}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -1123,7 +1122,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1253330548
+  GlobalObjectIdHash: 2560019461
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1285,7 +1284,6 @@ MonoBehaviour:
   playerInputRouter: {fileID: 1625288373066542151}
   playerHealth: {fileID: 8362710128211727279}
   playerAnimator: {fileID: 3050885605066038706}
-  playerAimRigDriver: {fileID: 4708112036984550118}
   playerNetwork: {fileID: 8824206297519405855}
   playerState: {fileID: 6986508744517089507}
   playerRoot: {fileID: 6686457148284037638}
@@ -1480,35 +1478,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAnimator
   animator: {fileID: 5908286736581636128}
   playerController: {fileID: 666066161801825246}
-  playerMovement: {fileID: 614476429764104265}
+  playerMovement: {fileID: 0}
   playerState: {fileID: 6986508744517089507}
-  moveBlendSharpness: 12
-  speedBlendSharpness: 10
-  velocitySampleFloor: 0.02
---- !u!114 &4708112036984550118
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6042401852463695999}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3d7f3ba004b317940a46a2eabafea26e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerAimRigDriver
-  mainCam: {fileID: 0}
-  playerState: {fileID: 6986508744517089507}
-  aimTarget: {fileID: 2792794821674309609}
-  upperBodyRigRoot: {fileID: 287298846492453782}
-  leftHandGripTarget: {fileID: 0}
-  rightHandWeaponGrip: {fileID: 0}
-  aimTargetDistance: 12
-  verticalOffset: -0.1
-  targetFollowSharpness: 20
-  aimRigWeight: 1
-  hipRigWeight: 0.2
-  rigBlendSharpness: 10
 --- !u!1 &6487970761737627794
 GameObject:
   m_ObjectHideFlags: 0

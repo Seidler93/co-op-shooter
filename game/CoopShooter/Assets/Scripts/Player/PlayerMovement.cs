@@ -16,6 +16,8 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 verticalVel;
     private Vector2 currentMoveInput;
 
+    public Vector2 CurrentMoveInput => currentMoveInput;
+
     public float PlanarSpeed => cc != null
         ? new Vector3(cc.velocity.x, 0f, cc.velocity.z).magnitude
         : 0f;

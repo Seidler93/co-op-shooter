@@ -126,7 +126,7 @@ public static class SetupMixamoPlayerLocomotion
         stateMachine.defaultState = idle;
 
         AnimatorState adsHold = stateMachine.AddState("AdsHold");
-        adsHold.motion = LoadClip(ShooterPackPath, "firing rifle.fbx");
+        adsHold.motion = LoadClip(ShooterPackPath, "rifle aiming idle.fbx");
         adsHold.writeDefaultValues = true;
 
         AnimatorState hipFireShot = stateMachine.AddState("HipFireShot");
