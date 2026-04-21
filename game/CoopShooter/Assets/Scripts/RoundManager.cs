@@ -19,6 +19,7 @@ public class RoundManager : NetworkBehaviour
 
     [Header("Enemy Spawning")]
     [SerializeField] private NetworkObject enemyPrefab;
+    [SerializeField] private NetworkObject[] baseEnemyPrefabs;
     [SerializeField] private NetworkObject enemySmallPrefab;
     [SerializeField] private NetworkObject enemySpitterPrefab;
     [SerializeField] private NetworkObject enemyExploderPrefab;
@@ -350,9 +351,9 @@ public class RoundManager : NetworkBehaviour
     {
         if (!IsServer) return;
 
-        if (enemyPrefab == null)
+        if (GetRandomBaseEnemyPrefab() == null)
         {
-            Debug.LogError("[RoundManager] enemyPrefab not assigned.");
+            Debug.LogError("[RoundManager] No base enemy prefab is assigned.");
             return;
         }
 
@@ -370,7 +371,7 @@ public class RoundManager : NetworkBehaviour
 
         for (int i = 0; i < enemyCount; i++)
         {
-            SpawnSingleEnemyServer(enemyPrefab, "enemy", i + 1, enemyCount, hasSpawnLanes, laneUsage);
+            SpawnSingleEnemyServer(GetRandomBaseEnemyPrefab(), "enemy", i + 1, enemyCount, hasSpawnLanes, laneUsage);
         }
 
         for (int i = 0; i < smallEnemyCount; i++)
@@ -392,6 +393,29 @@ public class RoundManager : NetworkBehaviour
         {
             SpawnSingleEnemyServer(enemyBossPrefab, "boss", i + 1, bossCount, hasSpawnLanes, laneUsage);
         }
+    }
+
+    private NetworkObject GetRandomBaseEnemyPrefab()
+    {
+        if (baseEnemyPrefabs != null && baseEnemyPrefabs.Length > 0)
+        {
+            List<NetworkObject> validBasePrefabs = null;
+
+            for (int i = 0; i < baseEnemyPrefabs.Length; i++)
+            {
+                NetworkObject prefab = baseEnemyPrefabs[i];
+                if (prefab == null)
+                    continue;
+
+                validBasePrefabs ??= new List<NetworkObject>(baseEnemyPrefabs.Length);
+                validBasePrefabs.Add(prefab);
+            }
+
+            if (validBasePrefabs != null && validBasePrefabs.Count > 0)
+                return validBasePrefabs[Random.Range(0, validBasePrefabs.Count)];
+        }
+
+        return enemyPrefab;
     }
 
     private void SpawnSingleEnemyServer(

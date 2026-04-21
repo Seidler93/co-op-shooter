@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEditor.Animations;
+using UnityEditor.AssetImporters;
 using UnityEngine;
 using UnityEngine.AI;
 using Unity.Netcode.Components;
@@ -9,7 +10,10 @@ public static class SetupZombieEnemyPrefab
     private const string ControllerDirectory = "Assets/Animations/Enemy";
     private const string ControllerPath = ControllerDirectory + "/ZombieEnemy.controller";
     private const string EnemyPrefabPath = "Assets/Prefabs/Enemy.prefab";
+    private const string EnemyZombieMalePrefabPath = "Assets/Prefabs/EnemyZombieMale.prefab";
     private const string ZombieVisualPrefabPath = "Assets/Zombie/Prefabs/Zombie1.prefab";
+    private const string ZombieMaleVisualPrefabPath = "Assets/ZombieMale_AAB/Prefabs/URP/ZombieMale_AAB_URP.prefab";
+    private const string ZombieMaleModelPath = "Assets/ZombieMale_AAB/Model/ZombieMale_AAB.fbx";
     private const string ZombieIdlePath = "Assets/Zombie/Animations/Z_Idle.anim";
     private const string ZombieWalkPath = "Assets/Zombie/Animations/Z_Walk_InPlace.anim";
     private const string ZombieRunPath = "Assets/Zombie/Animations/Z_Run_InPlace.anim";
@@ -20,11 +24,13 @@ public static class SetupZombieEnemyPrefab
     public static void RunSetup()
     {
         EnsureDirectoryExists(ControllerDirectory);
+        EnsureHumanoidRig(ZombieMaleModelPath);
         AnimatorController controller = CreateOrReplaceController();
-        ConfigureEnemyPrefab(controller);
+        ConfigureEnemyPrefab(EnemyPrefabPath, ZombieVisualPrefabPath, controller);
+        ConfigureEnemyPrefab(EnemyZombieMalePrefabPath, ZombieMaleVisualPrefabPath, controller, EnemyPrefabPath);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
-        Debug.Log("Base zombie enemy prefab configured.");
+        Debug.Log("Base zombie enemy prefabs configured.");
     }
 
     private static AnimatorController CreateOrReplaceController()
@@ -95,9 +101,15 @@ public static class SetupZombieEnemyPrefab
         transition.AddCondition(AnimatorConditionMode.If, 0f, "Dead");
     }
 
-    private static void ConfigureEnemyPrefab(AnimatorController controller)
+    private static void ConfigureEnemyPrefab(
+        string enemyPrefabPath,
+        string visualPrefabPath,
+        AnimatorController controller,
+        string templatePrefabPath = null)
     {
-        GameObject enemyRoot = PrefabUtility.LoadPrefabContents(EnemyPrefabPath);
+        EnsurePrefabExists(enemyPrefabPath, templatePrefabPath);
+
+        GameObject enemyRoot = PrefabUtility.LoadPrefabContents(enemyPrefabPath);
 
         try
         {
@@ -108,7 +120,7 @@ public static class SetupZombieEnemyPrefab
             if (visual != null)
                 Object.DestroyImmediate(visual.gameObject);
 
-            GameObject visualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(ZombieVisualPrefabPath);
+            GameObject visualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(visualPrefabPath);
             GameObject visualInstance = PrefabUtility.InstantiatePrefab(visualPrefab) as GameObject;
             visualInstance.name = "EnemyVisual";
             visualInstance.transform.SetParent(root, false);
@@ -144,7 +156,7 @@ public static class SetupZombieEnemyPrefab
             if (enemyAI != null)
                 AssignObjectReference(enemyAI, "enemyAnimator", driver);
 
-            PrefabUtility.SaveAsPrefabAsset(enemyRoot, EnemyPrefabPath);
+            PrefabUtility.SaveAsPrefabAsset(enemyRoot, enemyPrefabPath);
         }
         finally
         {
@@ -192,5 +204,37 @@ public static class SetupZombieEnemyPrefab
                 AssetDatabase.CreateFolder(current, next);
             current = combined;
         }
+    }
+
+    private static void EnsurePrefabExists(string prefabPath, string templatePrefabPath)
+    {
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) != null)
+            return;
+
+        if (string.IsNullOrEmpty(templatePrefabPath))
+            throw new System.IO.FileNotFoundException($"Prefab not found and no template was provided: {prefabPath}");
+
+        EnsureDirectoryExists(System.IO.Path.GetDirectoryName(prefabPath).Replace('\\', '/'));
+
+        if (!AssetDatabase.CopyAsset(templatePrefabPath, prefabPath))
+            throw new System.InvalidOperationException($"Failed to create prefab '{prefabPath}' from template '{templatePrefabPath}'.");
+    }
+
+    private static void EnsureHumanoidRig(string modelPath)
+    {
+        ModelImporter importer = AssetImporter.GetAtPath(modelPath) as ModelImporter;
+        if (importer == null)
+            return;
+
+        bool needsReimport =
+            importer.animationType != ModelImporterAnimationType.Human ||
+            importer.avatarSetup != ModelImporterAvatarSetup.CreateFromThisModel;
+
+        if (!needsReimport)
+            return;
+
+        importer.animationType = ModelImporterAnimationType.Human;
+        importer.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+        importer.SaveAndReimport();
     }
 }
