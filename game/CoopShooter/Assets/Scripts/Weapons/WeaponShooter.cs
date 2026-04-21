@@ -19,6 +19,7 @@ public class WeaponShooter : NetworkBehaviour
     [SerializeField] private WeaponAmmoNetcode weaponAmmo;
     [SerializeField] private PlayerState playerState;
     [SerializeField] private WeaponAimController weaponAimController;
+    [SerializeField] private PlayerAnimator playerAnimator;
 
     [Header("Tuning")]
     [SerializeField] private float projectileSpeed = 35f;
@@ -78,6 +79,7 @@ public class WeaponShooter : NetworkBehaviour
         if (!playerState) playerState = GetComponentInParent<PlayerState>();
         if (!netAim) netAim = GetComponentInParent<NetworkWeaponAim>();
         if (!weaponAimController) weaponAimController = GetComponent<WeaponAimController>();
+        if (!playerAnimator) playerAnimator = GetComponentInParent<PlayerAnimator>();
 
         ownerCam = Camera.main;
 
@@ -195,6 +197,8 @@ public class WeaponShooter : NetworkBehaviour
         Vector3 shotAudioPos = visualMuzzle != null ? visualMuzzle.position : muzzle.position;
         weaponAudio?.PlayLocalGunshot(shotAudioPos);
         crosshairDriver?.AddFireKick();
+        if (playerState == null || !playerState.IsAiming)
+            playerAnimator?.TriggerFire();
 
         Vector2 kick = weaponRecoil != null ? weaponRecoil.AddShotRecoil() : Vector2.zero;
         if (netAim != null)
