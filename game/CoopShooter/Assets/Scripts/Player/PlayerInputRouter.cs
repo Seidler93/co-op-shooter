@@ -44,6 +44,7 @@ public class PlayerInputRouter : MonoBehaviour
         if (playerState != null && playerState.IsInputBlocked)
         {
             playerMovement?.SetMoveInput(Vector2.zero);
+            playerMovement?.SetSprintInput(false);
             playerState.SetAiming(false);
             cameraController?.SetAiming(false);
             weaponShooter?.SetFireInput(false, false);
@@ -52,6 +53,12 @@ public class PlayerInputRouter : MonoBehaviour
 
         Vector2 moveInput = moveAction.ReadValue<Vector2>();
         playerMovement?.SetMoveInput(moveInput);
+
+        bool sprintHeld =
+            Keyboard.current != null &&
+            ((Keyboard.current.leftShiftKey?.isPressed ?? false) ||
+             (Keyboard.current.rightShiftKey?.isPressed ?? false));
+        playerMovement?.SetSprintInput(sprintHeld);
 
         Vector2 lookInput = lookAction.ReadValue<Vector2>();
         playerLook?.TickLook(lookInput, Time.deltaTime);

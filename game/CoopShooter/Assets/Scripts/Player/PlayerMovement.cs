@@ -5,7 +5,8 @@ public class PlayerMovement : MonoBehaviour
 {
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 6f;
-    [SerializeField] private float aimMoveSpeed = 4.5f;
+    [SerializeField] private float sprintMoveSpeed = 9f;
+    [SerializeField] private float adsMoveSpeedMultiplier = 0.6f;
     [SerializeField] private float gravity = -18f;
 
     [Header("Optional")]
@@ -15,6 +16,7 @@ public class PlayerMovement : MonoBehaviour
     private CharacterController cc;
     private Vector3 verticalVel;
     private Vector2 currentMoveInput;
+    private bool sprintHeld;
 
     public Vector2 CurrentMoveInput => currentMoveInput;
 
@@ -61,11 +63,23 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
+    public void SetSprintInput(bool isHeld)
+    {
+        if (playerState != null && (playerState.IsDead || playerState.IsDowned || playerState.IsInputBlocked))
+        {
+            sprintHeld = false;
+            return;
+        }
+
+        sprintHeld = isHeld;
+    }
+
     private void TickMovement(float dt)
     {
         if (playerState != null && (playerState.IsDead || playerState.IsDowned || playerState.IsInputBlocked))
         {
             currentMoveInput = Vector2.zero;
+            sprintHeld = false;
             verticalVel = Vector3.zero;
 
             if (playerState != null)
@@ -78,7 +92,11 @@ public class PlayerMovement : MonoBehaviour
         }
 
         bool isAiming = playerState != null && playerState.IsAiming;
-        float speed = isAiming ? aimMoveSpeed : moveSpeed;
+        bool isSprinting = sprintHeld && !isAiming && currentMoveInput.y > 0.05f;
+        float baseSpeed = isSprinting ? sprintMoveSpeed : moveSpeed;
+        float speed = isAiming
+            ? baseSpeed * adsMoveSpeedMultiplier
+            : baseSpeed;
 
         Vector3 move = transform.right * currentMoveInput.x + transform.forward * currentMoveInput.y;
         if (move.sqrMagnitude > 1f)
