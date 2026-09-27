@@ -7,18 +7,18 @@ using Unity.Netcode.Components;
 
 public static class SetupZombieEnemyPrefab
 {
-    private const string ControllerDirectory = "Assets/Animations/Enemy";
+    private const string ControllerDirectory = "Assets/_Project/Animations/Enemy";
     private const string ControllerPath = ControllerDirectory + "/ZombieEnemy.controller";
-    private const string EnemyPrefabPath = "Assets/Prefabs/Enemy.prefab";
-    private const string EnemyZombieMalePrefabPath = "Assets/Prefabs/EnemyZombieMale.prefab";
-    private const string ZombieVisualPrefabPath = "Assets/Zombie/Prefabs/Zombie1.prefab";
-    private const string ZombieMaleVisualPrefabPath = "Assets/ZombieMale_AAB/Prefabs/URP/ZombieMale_AAB_URP.prefab";
-    private const string ZombieMaleModelPath = "Assets/ZombieMale_AAB/Model/ZombieMale_AAB.fbx";
-    private const string ZombieIdlePath = "Assets/Zombie/Animations/Z_Idle.anim";
-    private const string ZombieWalkPath = "Assets/Zombie/Animations/Z_Walk_InPlace.anim";
-    private const string ZombieRunPath = "Assets/Zombie/Animations/Z_Run_InPlace.anim";
-    private const string ZombieAttackPath = "Assets/Zombie/Animations/Z_Attack.anim";
-    private const string ZombieDeathPath = "Assets/Zombie/Animations/Z_FallingForward.anim";
+    private const string EnemyPrefabPath = "Assets/_Project/Prefabs/Enemy.prefab";
+    private const string EnemyZombieMalePrefabPath = "Assets/_Project/Prefabs/EnemyZombieMale.prefab";
+    private const string ZombieVisualPrefabPath = "Assets/ThirdParty/Zombie/Prefabs/Zombie1.prefab";
+    private const string ZombieMaleVisualPrefabPath = "Assets/ThirdParty/ZombieMale_AAB/Prefabs/URP/ZombieMale_AAB_URP.prefab";
+    private const string ZombieMaleModelPath = "Assets/ThirdParty/ZombieMale_AAB/Model/ZombieMale_AAB.fbx";
+    private const string ZombieIdlePath = "Assets/ThirdParty/Zombie/Animations/Z_Idle.anim";
+    private const string ZombieWalkPath = "Assets/ThirdParty/Zombie/Animations/Z_Walk_InPlace.anim";
+    private const string ZombieRunPath = "Assets/ThirdParty/Zombie/Animations/Z_Run_InPlace.anim";
+    private const string ZombieAttackPath = "Assets/ThirdParty/Zombie/Animations/Z_Attack.anim";
+    private const string ZombieDeathPath = "Assets/ThirdParty/Zombie/Animations/Z_FallingForward.anim";
 
     [MenuItem("Tools/Project Z/Setup Base Zombie Enemy Prefab")]
     public static void RunSetup()

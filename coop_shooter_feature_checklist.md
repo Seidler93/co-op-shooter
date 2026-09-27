@@ -1,5 +1,15 @@
 
-# Coop Shooter – Feature Roadmap Checklist
+# Co-op Shooter – Feature Roadmap Checklist
+
+Last audited against the Unity project: September 27, 2026.
+
+Legend:
+
+- `[x]` implemented in the current project
+- `[ ]` not implemented or not yet production-ready
+
+This checklist records shipped code, not just the original design plan. Some implemented
+features still need tuning and multiplayer playtesting before they should be considered final.
 
 This document tracks systems that help the project feel closer to **AAA-quality gameplay smoothness** while staying realistic for a solo developer.
 
@@ -8,14 +18,14 @@ This document tracks systems that help the project feel closer to **AAA-quality 
 # Phase 1 – Core AAA Feel (Highest Priority)
 
 ## Weapon Feel
-- [ ] Camera recoil
-- [ ] Weapon kickback animation
-- [ ] Weapon sway while idle
-- [ ] Muzzle flash
-- [ ] Bullet tracers
+- [x] Camera/weapon recoil
+- [x] Weapon kickback
+- [x] Weapon sway while idle
+- [x] Muzzle flash
+- [x] Bullet tracers
 - [ ] Shell ejection
 - [ ] Weapon smoke particles
-- [ ] Layered weapon audio
+- [x] Networked weapon audio (additional layering/polish remains)
 - [ ] Camera shake when firing
 - [ ] Hitmarker sound
 
@@ -28,17 +38,17 @@ This document tracks systems that help the project feel closer to **AAA-quality 
 - [ ] Optional damage numbers
 
 ## Movement Polish
-- [ ] Acceleration / deceleration system
-- [ ] Sprint FOV increase
+- [x] Acceleration / deceleration system
+- [ ] Sprint FOV increase (ADS zoom is implemented)
 - [ ] Camera tilt when strafing
 - [ ] Landing impact camera effect
 - [ ] Footstep audio system
-- [ ] Weapon bob while moving
+- [x] Weapon sway/bob responds to movement
 
 ## Crosshair System
 - [ ] Dynamic spread from movement
 - [x] Spread increase from shooting
-- [ ] Spread penalty while jumping
+- [ ] Spread penalty while airborne
 - [x] Tightening when aiming
 - [x] Crosshair animation
 
@@ -65,13 +75,14 @@ This document tracks systems that help the project feel closer to **AAA-quality 
 - [ ] Sniper archetype
 
 Weapon attributes:
-- [ ] Fire rate tuning
-- [ ] Recoil patterns
-- [ ] Reload speed variation
-- [ ] Spread tuning
+- [x] Fire-rate tuning and shop upgrades
+- [x] Recoil tuning
+- [ ] Per-weapon recoil patterns
+- [ ] Reload-speed variation
+- [x] Spread/bloom tuning
 
 ## Equipment System
-- [ ] Grenades
+- [x] Networked grenades
 - [ ] Mines
 - [ ] Turrets
 - [ ] Stim pack
@@ -82,10 +93,11 @@ Weapon attributes:
 # Phase 3 – Zombies Roguelike Mode
 
 ## Wave System
-- [ ] Basic zombie wave spawning
-- [ ] Increasing difficulty scaling
-- [ ] Wave counter UI
-- [ ] Break/shop between waves
+- [x] Server-authoritative zombie wave spawning
+- [x] Increasing enemy-count and enemy-type scaling
+- [x] Wave counter UI
+- [x] Points shop during runs
+- [ ] Dedicated timed shop/intermission between waves
 
 ## Checkpoint System
 - [ ] Checkpoint every X waves
@@ -136,17 +148,17 @@ Example upgrades:
 
 Zombie types:
 
-- [ ] Walker (slow)
-- [ ] Runner (fast)
-- [ ] Tank (high HP)
-- [ ] Exploder
-- [ ] Spitter (ranged)
+- [x] Base zombie variants
+- [x] Small/fast zombie
+- [x] Boss/tank enemy
+- [x] Exploder
+- [x] Spitter (ranged)
 
 AI Improvements:
 - [ ] Swarm behavior
-- [ ] Target closest player
-- [ ] Attack cooldowns
-- [ ] Pathing improvements
+- [x] Target closest living player
+- [x] Attack cooldowns
+- [x] NavMesh pathing and spawn-lane support
 
 ---
 
@@ -161,10 +173,10 @@ AI Improvements:
 - [ ] Scoreboard UI
 
 ## Zombies Co‑op Mode
-- [ ] Player revive system
-- [ ] Shared economy
-- [ ] Co‑op scaling difficulty
-- [ ] Team wipe restart
+- [x] Player downed, bleedout, and revive system
+- [ ] Shared economy (score is currently per-player)
+- [ ] Explicit player-count difficulty scaling
+- [x] Team-wipe game over and restart flow
 
 ---
 
@@ -183,10 +195,10 @@ AI Improvements:
 - [ ] Recoil kick
 
 ## UI Systems
-- [ ] Ammo counter
+- [x] Network-bound ammo counter
 - [ ] Hitmarker UI
 - [ ] Kill feed
-- [ ] Wave counter
+- [x] Wave counter
 - [ ] Minimap
 - [ ] Damage direction indicator
 

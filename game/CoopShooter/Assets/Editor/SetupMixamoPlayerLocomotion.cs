@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
@@ -6,13 +7,17 @@ using UnityEngine.Animations.Rigging;
 
 public static class SetupMixamoPlayerLocomotion
 {
-    private const string ControllerDirectory = "Assets/Animations/Player";
+    private const string ControllerDirectory = "Assets/_Project/Animations/Player";
     private const string ControllerPath = ControllerDirectory + "/PlayerLocomotion.controller";
     private const string UpperBodyMaskPath = ControllerDirectory + "/UpperBodyFire.mask";
-    private const string PlayerPrefabPath = "Assets/Prefabs/Player.prefab";
-    private const string MixamoModelPath = "Assets/Rifle 8-Way Locomotion Pack/Ch15_nonPBR.fbx";
-    private const string LocomotionPackPath = "Assets/Rifle 8-Way Locomotion Pack/";
-    private const string ShooterPackPath = "Assets/Animations/MixamoShooting/Shooter Pack/";
+    private const string PlayerPrefabPath = "Assets/_Project/Prefabs/Player.prefab";
+    private const string MixamoModelPath = "Assets/ThirdParty/Rifle 8-Way Locomotion Pack/Ch15_nonPBR.fbx";
+    private const string LocomotionPackPath = "Assets/ThirdParty/Rifle 8-Way Locomotion Pack/";
+    private const string ShooterPackPath = "Assets/_Project/Animations/MixamoShooting/Shooter Pack/";
+    private const string RifleStarterLoopsPath = "Assets/ThirdParty/Rifle_27A2_Starter/Animation/IPC/Loops/";
+    private const string RifleStarterFirePath = "Assets/ThirdParty/Rifle_27A2_Starter/Animation/Holster_Reload_Fire/";
+    private const string RifleStarterAimOffsetPath = "Assets/ThirdParty/Rifle_27A2_Starter/Animation/Aim_Offsets/";
+    private const string AdsFireClipName = "firing rifle.fbx";
     private const float LocomotionOrientationOffsetY = -45f;
     private const float AimOrientationOffsetY = -45f;
 
@@ -22,6 +27,7 @@ public static class SetupMixamoPlayerLocomotion
         EnsureDirectoryExists(ControllerDirectory);
         EnsureLocomotionClipImportSettings();
         EnsureAimingClipImportSettings();
+        EnsureRifleStarterClipImportSettings();
         CreateOrReplaceController();
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -34,6 +40,7 @@ public static class SetupMixamoPlayerLocomotion
         EnsureDirectoryExists(ControllerDirectory);
         EnsureLocomotionClipImportSettings();
         EnsureAimingClipImportSettings();
+        EnsureRifleStarterClipImportSettings();
 
         AnimatorController controller = CreateOrReplaceController();
         GameObject playerPrefabRoot = PrefabUtility.LoadPrefabContents(PlayerPrefabPath);
@@ -61,19 +68,37 @@ public static class SetupMixamoPlayerLocomotion
 
     private static AnimatorController CreateOrReplaceController()
     {
-        AssetDatabase.DeleteAsset(ControllerPath);
+        AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
+        if (controller == null)
+            controller = AnimatorController.CreateAnimatorControllerAtPath(ControllerPath);
 
-        AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(ControllerPath);
+        foreach (AnimatorControllerParameter parameter in controller.parameters.ToArray())
+            controller.RemoveParameter(parameter);
+
+        AnimatorStateMachine baseStateMachine = new AnimatorStateMachine { name = "Base Layer" };
+        AssetDatabase.AddObjectToAsset(baseStateMachine, controller);
+
+        controller.layers = new[]
+        {
+            new AnimatorControllerLayer
+            {
+                name = "Base Layer",
+                defaultWeight = 1f,
+                blendingMode = AnimatorLayerBlendingMode.Override,
+                stateMachine = baseStateMachine
+            }
+        };
+
         controller.AddParameter("MoveX", AnimatorControllerParameterType.Float);
         controller.AddParameter("MoveY", AnimatorControllerParameterType.Float);
         controller.AddParameter("Speed", AnimatorControllerParameterType.Float);
+        controller.AddParameter("AimPitch", AnimatorControllerParameterType.Float);
         controller.AddParameter("IsAiming", AnimatorControllerParameterType.Bool);
         controller.AddParameter("IsGrounded", AnimatorControllerParameterType.Bool);
         controller.AddParameter("IsDead", AnimatorControllerParameterType.Bool);
         controller.AddParameter("IsDowned", AnimatorControllerParameterType.Bool);
         controller.AddParameter("Fire", AnimatorControllerParameterType.Trigger);
         controller.AddParameter("Reload", AnimatorControllerParameterType.Trigger);
-
         AnimatorStateMachine stateMachine = controller.layers[0].stateMachine;
         stateMachine.states = new ChildAnimatorState[0];
         stateMachine.anyStateTransitions = new AnimatorStateTransition[0];
@@ -125,16 +150,10 @@ public static class SetupMixamoPlayerLocomotion
         idle.writeDefaultValues = true;
         stateMachine.defaultState = idle;
 
-        AnimatorState adsHold = stateMachine.AddState("AdsHold");
-        adsHold.motion = LoadClip(ShooterPackPath, "rifle aiming idle.fbx");
-        adsHold.writeDefaultValues = true;
-
         AnimatorState hipFireShot = stateMachine.AddState("HipFireShot");
-        hipFireShot.motion = LoadClip(ShooterPackPath, "firing rifle.fbx");
+        hipFireShot.motion = LoadClip(RifleStarterFirePath, "W2_Stand_Fire_Single.fbx");
         hipFireShot.writeDefaultValues = true;
 
-        AddBoolTransition(idle, adsHold, "IsAiming", true);
-        AddBoolTransition(adsHold, idle, "IsAiming", false);
         AddFireTransition(idle, hipFireShot, false);
         AddReturnTransition(hipFireShot, idle);
     }
@@ -152,7 +171,7 @@ public static class SetupMixamoPlayerLocomotion
 
         AssetDatabase.AddObjectToAsset(blendTree, controller);
 
-        AddBlendMotion(blendTree, LocomotionPackPath, "idle.fbx", Vector2.zero);
+        AddBlendMotion(blendTree, RifleStarterLoopsPath, "W2_Stand_Relaxed_Idle_IPC.fbx", Vector2.zero);
         AddBlendMotion(blendTree, LocomotionPackPath, "walk forward.fbx", new Vector2(0f, 0.5f));
         AddBlendMotion(blendTree, LocomotionPackPath, "walk backward.fbx", new Vector2(0f, -0.5f));
         AddBlendMotion(blendTree, LocomotionPackPath, "walk left.fbx", new Vector2(-0.5f, 0f));
@@ -186,11 +205,39 @@ public static class SetupMixamoPlayerLocomotion
 
         AssetDatabase.AddObjectToAsset(blendTree, controller);
 
-        AddBlendMotion(blendTree, ShooterPackPath, "rifle aiming idle.fbx", Vector2.zero);
-        AddBlendMotion(blendTree, ShooterPackPath, "walking.fbx", new Vector2(0f, 1f));
+        AddBlendMotion(blendTree, RifleStarterLoopsPath, "W2_Stand_Aim_Idle_v2_IPC.fbx", Vector2.zero);
+        AddBlendMotion(blendTree, RifleStarterLoopsPath, "W2_Jog_Aim_F_Loop_IPC.fbx", new Vector2(0f, 1f));
         AddBlendMotion(blendTree, ShooterPackPath, "walking backwards.fbx", new Vector2(0f, -1f));
         AddBlendMotion(blendTree, ShooterPackPath, "strafe (2).fbx", new Vector2(-1f, 0f));
         AddBlendMotion(blendTree, ShooterPackPath, "strafe.fbx", new Vector2(1f, 0f));
+
+        return blendTree;
+    }
+
+    private static Motion CreateAimOffsetBlendTree(AnimatorController controller)
+    {
+        BlendTree blendTree = new BlendTree
+        {
+            name = "AdsAimOffsetBlendTree",
+            blendType = BlendTreeType.Simple1D,
+            blendParameter = "AimPitch",
+            useAutomaticThresholds = false
+        };
+
+        AssetDatabase.AddObjectToAsset(blendTree, controller);
+
+        AnimationClip down = LoadClip(RifleStarterAimOffsetPath, "W2_Stand_Aim_Point_D90.fbx");
+        AnimationClip center = LoadClip(RifleStarterAimOffsetPath, "W2_Stand_Aim_Point_Center.fbx");
+        AnimationClip up = LoadClip(RifleStarterAimOffsetPath, "W2_Stand_Aim_Point_U90.fbx");
+
+        if (down != null)
+            blendTree.AddChild(down, -1f);
+
+        if (center != null)
+            blendTree.AddChild(center, 0f);
+
+        if (up != null)
+            blendTree.AddChild(up, 1f);
 
         return blendTree;
     }
@@ -227,6 +274,15 @@ public static class SetupMixamoPlayerLocomotion
         transition.duration = 0.08f;
     }
 
+    private static void AddReturnTransition(AnimatorState from, AnimatorState to, string parameter, bool value)
+    {
+        AnimatorStateTransition transition = from.AddTransition(to);
+        transition.hasExitTime = true;
+        transition.exitTime = 0.9f;
+        transition.duration = 0.08f;
+        transition.AddCondition(value ? AnimatorConditionMode.If : AnimatorConditionMode.IfNot, 0f, parameter);
+    }
+
     private static AvatarMask GetOrCreateUpperBodyMask()
     {
         AvatarMask mask = AssetDatabase.LoadAssetAtPath<AvatarMask>(UpperBodyMaskPath);
@@ -237,17 +293,85 @@ public static class SetupMixamoPlayerLocomotion
         }
 
         mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.Root, false);
-        mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.Body, true);
-        mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.Head, true);
+        mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.Body, false);
+        mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.Head, false);
         mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.LeftLeg, false);
         mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.RightLeg, false);
-        mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.LeftArm, true);
-        mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.RightArm, true);
-        mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.LeftFingers, true);
-        mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.RightFingers, true);
+        mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.LeftArm, false);
+        mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.RightArm, false);
+        mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.LeftFingers, false);
+        mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.RightFingers, false);
+
+        ConfigureUpperBodyTransformMask(mask);
 
         EditorUtility.SetDirty(mask);
         return mask;
+    }
+
+    private static void ConfigureUpperBodyTransformMask(AvatarMask mask)
+    {
+        GameObject modelRoot = AssetDatabase.LoadAssetAtPath<GameObject>(MixamoModelPath);
+        if (modelRoot == null)
+        {
+            mask.transformCount = 0;
+            return;
+        }
+
+        Transform[] transforms = modelRoot.GetComponentsInChildren<Transform>(true);
+        List<string> includedPaths = new List<string>();
+
+        for (int i = 0; i < transforms.Length; i++)
+        {
+            Transform transform = transforms[i];
+            if (transform == null || transform == modelRoot.transform)
+                continue;
+
+            if (!IsUpperBodyMaskTransform(transform.name))
+                continue;
+
+            string path = AnimationUtility.CalculateTransformPath(transform, modelRoot.transform);
+            if (!string.IsNullOrEmpty(path) && !includedPaths.Contains(path))
+                includedPaths.Add(path);
+        }
+
+        mask.transformCount = includedPaths.Count;
+
+        for (int i = 0; i < includedPaths.Count; i++)
+        {
+            mask.SetTransformPath(i, includedPaths[i]);
+            mask.SetTransformActive(i, true);
+        }
+    }
+
+    private static bool IsUpperBodyMaskTransform(string transformName)
+    {
+        string lowerName = transformName.ToLowerInvariant();
+
+        if (lowerName.Contains("leg") ||
+            lowerName.Contains("thigh") ||
+            lowerName.Contains("calf") ||
+            lowerName.Contains("foot") ||
+            lowerName.Contains("toe"))
+        {
+            return false;
+        }
+
+        return lowerName.Contains("spine") ||
+               lowerName.Contains("chest") ||
+               lowerName.Contains("neck") ||
+               lowerName.Contains("head") ||
+               lowerName.Contains("clavicle") ||
+               lowerName.Contains("shoulder") ||
+               lowerName.Contains("arm") ||
+               lowerName.Contains("elbow") ||
+               lowerName.Contains("forearm") ||
+               lowerName.Contains("hand") ||
+               lowerName.Contains("finger") ||
+               lowerName.Contains("thumb") ||
+               lowerName.Contains("index") ||
+               lowerName.Contains("middle") ||
+               lowerName.Contains("ring") ||
+               lowerName.Contains("pinky");
     }
 
     private static void AddBlendMotion(BlendTree blendTree, string folderPath, string clipFileName, Vector2 position)
@@ -282,6 +406,18 @@ public static class SetupMixamoPlayerLocomotion
 
         for (int i = 0; i < aimClipPaths.Length; i++)
             EnsureClipImportSettings(aimClipPaths[i], AimOrientationOffsetY, !aimClipPaths[i].EndsWith("firing rifle.fbx"));
+    }
+
+    private static void EnsureRifleStarterClipImportSettings()
+    {
+        EnsureLoopTimeOnly(RifleStarterLoopsPath + "W2_Stand_Relaxed_Idle_IPC.fbx", true);
+        EnsureLoopTimeOnly(RifleStarterLoopsPath + "W2_Stand_Aim_Idle_v2_IPC.fbx", true);
+        EnsureLoopTimeOnly(RifleStarterLoopsPath + "W2_Walk_Aim_F_Loop_IPC.fbx", true);
+        EnsureLoopTimeOnly(RifleStarterLoopsPath + "W2_Jog_Aim_F_Loop_IPC.fbx", true);
+        EnsureLoopTimeOnly(RifleStarterFirePath + "W2_Stand_Fire_Single.fbx", false);
+        EnsureLoopTimeOnly(RifleStarterAimOffsetPath + "W2_Stand_Aim_Point_Center.fbx", true);
+        EnsureLoopTimeOnly(RifleStarterAimOffsetPath + "W2_Stand_Aim_Point_D90.fbx", true);
+        EnsureLoopTimeOnly(RifleStarterAimOffsetPath + "W2_Stand_Aim_Point_U90.fbx", true);
     }
 
     private static void EnsureLocomotionClipImportSettings()
@@ -350,6 +486,38 @@ public static class SetupMixamoPlayerLocomotion
             }
 
             clips[i] = clip;
+        }
+
+        if (!changed)
+            return;
+
+        importer.clipAnimations = clips;
+        importer.SaveAndReimport();
+    }
+
+    private static void EnsureLoopTimeOnly(string assetPath, bool loopTime)
+    {
+        ModelImporter importer = AssetImporter.GetAtPath(assetPath) as ModelImporter;
+        if (importer == null)
+            return;
+
+        ModelImporterClipAnimation[] clips = importer.clipAnimations;
+        if (clips == null || clips.Length == 0)
+            clips = importer.defaultClipAnimations;
+
+        if (clips == null || clips.Length == 0)
+            return;
+
+        bool changed = false;
+        for (int i = 0; i < clips.Length; i++)
+        {
+            ModelImporterClipAnimation clip = clips[i];
+            if (clip.loopTime == loopTime)
+                continue;
+
+            clip.loopTime = loopTime;
+            clips[i] = clip;
+            changed = true;
         }
 
         if (!changed)
@@ -435,6 +603,9 @@ public static class SetupMixamoPlayerLocomotion
         so.FindProperty("animator").objectReferenceValue = animator;
         so.FindProperty("playerController").objectReferenceValue = playerPrefabRoot.GetComponent<PlayerController>();
         so.FindProperty("playerMovement").objectReferenceValue = playerPrefabRoot.GetComponent<PlayerMovement>();
+        SerializedProperty playerLookProp = so.FindProperty("playerLook");
+        if (playerLookProp != null)
+            playerLookProp.objectReferenceValue = playerPrefabRoot.GetComponent<PlayerLook>();
         so.FindProperty("playerState").objectReferenceValue = playerPrefabRoot.GetComponent<PlayerState>();
         so.ApplyModifiedPropertiesWithoutUndo();
 

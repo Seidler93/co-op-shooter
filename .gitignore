@@ -42,6 +42,8 @@ game/**/[Ll]ogs/
 game/**/[Uu]ser[Ss]ettings/
 game/**/[Mm]emoryCaptures/
 game/**/[Rr]ecordings/
+game/**/Assets/_Recovery/
+game/**/Assets/_Recovery.meta
 
 # Crash reports
 game/sysinfo.txt
@@ -50,7 +52,9 @@ game/sysinfo.txt
 game/.vs/
 game/.idea/
 game/*.csproj
+game/**/*.csproj
 game/*.unityproj
+game/**/*.unityproj
 game/*.sln
 game/*.user
 game/*.pidb
@@ -60,11 +64,32 @@ game/*.pdb
 game/*.mdb
 game/*.opendb
 game/*.VC.db
+game/**/*.slnx
 
 # BUT KEEP THESE (important!)
 !game/Assets/**/*.meta
 !game/Packages/**/*.json
 !game/ProjectSettings/**/*.asset
+
+# Locally installed Unity Asset Store/source packs. Keep project-owned prefabs,
+# scenes, scripts, and selected runtime assets under Assets/_Project instead.
+game/**/Assets/ThirdParty/ADG_Textures/
+game/**/Assets/ThirdParty/ADG_Textures.meta
+game/**/Assets/ThirdParty/Flooded_Grounds/
+game/**/Assets/ThirdParty/Flooded_Grounds.meta
+game/**/Assets/ThirdParty/Rifle_27A2_Starter/
+game/**/Assets/ThirdParty/Rifle_27A2_Starter.meta
+game/**/Assets/ThirdParty/TextureHaven/
+game/**/Assets/ThirdParty/TextureHaven.meta
+game/**/Assets/ThirdParty/Zombie 1/
+game/**/Assets/ThirdParty/Zombie 1.meta
+game/**/Assets/ThirdParty/ammo_box/
+game/**/Assets/ThirdParty/ammo_box.meta
+
+# Large source texture/model pack; local import only. Copy optimized runtime
+# derivatives into Assets/_Project when the game actually needs them.
+game/**/Assets/Ditag Design/
+game/**/Assets/Ditag Design.meta
 
 # ==========================================================
 # NODE / ELECTRON (/launcher)
